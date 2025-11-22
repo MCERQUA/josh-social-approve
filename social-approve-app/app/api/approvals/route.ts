@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
+// Force dynamic rendering - don't try to execute during build
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

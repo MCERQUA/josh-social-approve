@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { PostWithApproval } from '@/types';
 
+// Force dynamic rendering - don't try to execute during build
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const result = await sql`
