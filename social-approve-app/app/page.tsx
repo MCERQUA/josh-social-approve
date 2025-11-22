@@ -107,10 +107,10 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-800 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading posts...</p>
+          <p className="mt-4 text-gray-300">Loading posts...</p>
         </div>
       </div>
     );
@@ -118,9 +118,9 @@ export default function Home() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-800 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600">Error: {error}</p>
+          <p className="text-red-400">Error: {error}</p>
           <button
             onClick={fetchPosts}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -133,7 +133,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-800">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -196,10 +196,10 @@ export default function Home() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         {filteredPosts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-600 text-lg">No posts found.</p>
+            <p className="text-gray-300 text-lg">No posts found.</p>
           </div>
         ) : (
-          <div className="flex flex-col items-center space-y-6">
+          <div className="flex flex-col items-center gap-8">
             {filteredPosts.map((post) => (
               <PostCard
                 key={post.id}

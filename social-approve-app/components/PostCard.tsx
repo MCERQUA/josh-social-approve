@@ -51,7 +51,7 @@ export default function PostCard({ post, onApprove, onReject }: PostCardProps) {
       <div className="p-5 border-b border-gray-200 bg-white">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white font-bold text-lg shadow-sm">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
               CCA
             </div>
             <div>
