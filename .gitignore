@@ -1,0 +1,39 @@
+# Environment files with sensitive data
+.env
+.env.local
+.env*.local
+
+# Node modules
+node_modules/
+
+# Next.js build output
+social-approve-app/.next/
+social-approve-app/out/
+
+# Database files (if any local ones exist)
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+.cache/
+
+# Build artifacts
+dist/
+build/
