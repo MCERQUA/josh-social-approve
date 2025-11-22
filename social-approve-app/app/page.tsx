@@ -193,13 +193,13 @@ export default function Home() {
       </header>
 
       {/* Posts Feed */}
-      <main className="max-w-4xl mx-auto px-4 py-6">
+      <main className="max-w-4xl mx-auto px-4 py-8">
         {filteredPosts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-600">No posts found.</p>
+            <p className="text-gray-600 text-lg">No posts found.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col items-center space-y-6">
             {filteredPosts.map((post) => (
               <PostCard
                 key={post.id}
