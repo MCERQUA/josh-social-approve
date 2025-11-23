@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 
+// Force dynamic rendering to avoid build-time Clerk errors
+export const dynamic = 'force-dynamic';
+
 export default function SocialPage() {
   // In the future, this will fetch from a database of registered companies
   const companies = [

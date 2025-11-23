@@ -5,6 +5,9 @@ import PostCard from '@/components/PostCard';
 import RejectionModal from '@/components/RejectionModal';
 import { PostWithApproval } from '@/types';
 
+// Force dynamic rendering to avoid build-time Clerk errors
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const [posts, setPosts] = useState<PostWithApproval[]>([]);
   const [loading, setLoading] = useState(true);

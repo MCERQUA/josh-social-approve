@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+// Force dynamic rendering to avoid build-time Clerk errors
+export const dynamic = 'force-dynamic';
+
 interface Stats {
   total: number;
   pending: number;
