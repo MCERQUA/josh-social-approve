@@ -135,18 +135,19 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-800">
       {/* Header */}
-      <header className="bg-gradient-to-br from-white to-gray-50 shadow-lg border-b-2 border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between mb-6">
+      <header className="bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 shadow-2xl border-b border-slate-700 sticky top-0 z-10 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto px-8 py-10">
+          {/* Title Section */}
+          <div className="flex items-center justify-between mb-16">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Social Media Approval Dashboard</h1>
-              <p className="text-sm text-gray-600 mt-2 font-medium">Contractor's Choice Agency</p>
+              <h1 className="text-4xl font-bold text-white tracking-tight bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Social Media Approval Dashboard</h1>
+              <p className="text-sm text-slate-400 mt-3 font-medium tracking-wide">Contractor's Choice Agency</p>
             </div>
             <button
               onClick={fetchPosts}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg font-medium"
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-200 flex items-center gap-2.5 shadow-lg hover:shadow-2xl font-semibold hover:scale-105 border border-blue-500"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               <span>Refresh</span>
@@ -154,35 +155,35 @@ export default function Home() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-4 mb-5">
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 text-center shadow-sm border border-gray-200">
-              <p className="text-3xl font-bold text-gray-900 mb-1">{stats.total}</p>
-              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Total Posts</p>
+          <div className="grid grid-cols-4 gap-6 mb-14">
+            <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-6 text-center shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all duration-200">
+              <p className="text-4xl font-bold text-white mb-3">{stats.total}</p>
+              <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Total Posts</p>
             </div>
-            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-4 text-center shadow-sm border border-yellow-200">
-              <p className="text-3xl font-bold text-yellow-900 mb-1">{stats.pending}</p>
-              <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide">Pending</p>
+            <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-2xl p-6 text-center shadow-lg border border-yellow-500 hover:shadow-xl hover:border-yellow-400 transition-all duration-200">
+              <p className="text-4xl font-bold text-white mb-3">{stats.pending}</p>
+              <p className="text-xs font-semibold text-yellow-100 uppercase tracking-wider">Pending</p>
             </div>
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 text-center shadow-sm border border-green-200">
-              <p className="text-3xl font-bold text-green-900 mb-1">{stats.approved}</p>
-              <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Approved</p>
+            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-6 text-center shadow-lg border border-green-500 hover:shadow-xl hover:border-green-400 transition-all duration-200">
+              <p className="text-4xl font-bold text-white mb-3">{stats.approved}</p>
+              <p className="text-xs font-semibold text-green-100 uppercase tracking-wider">Approved</p>
             </div>
-            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 text-center shadow-sm border border-red-200">
-              <p className="text-3xl font-bold text-red-900 mb-1">{stats.rejected}</p>
-              <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Rejected</p>
+            <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-2xl p-6 text-center shadow-lg border border-red-500 hover:shadow-xl hover:border-red-400 transition-all duration-200">
+              <p className="text-4xl font-bold text-white mb-3">{stats.rejected}</p>
+              <p className="text-xs font-semibold text-red-100 uppercase tracking-wider">Rejected</p>
             </div>
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex gap-3 border-t-2 border-gray-200 pt-5">
+          <div className="flex gap-4 pt-10 mt-6 border-t border-slate-700">
             {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all duration-200 capitalize shadow-sm ${
+                className={`flex-1 px-5 py-3 rounded-xl font-semibold transition-all duration-200 capitalize shadow-sm ${
                   filter === f
-                    ? 'bg-blue-600 text-white shadow-md scale-105'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-xl scale-105 hover:from-blue-700 hover:to-blue-800 border border-blue-500'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 hover:shadow-lg'
                 }`}
               >
                 {f}
@@ -193,13 +194,13 @@ export default function Home() {
       </header>
 
       {/* Posts Feed */}
-      <main className="max-w-4xl mx-auto px-4 pt-12 pb-8">
+      <main className="max-w-4xl mx-auto px-6 pt-16 pb-12">
         {filteredPosts.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-300 text-lg">No posts found.</p>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-8">
+          <div className="flex flex-col items-center gap-12">
             {filteredPosts.map((post) => (
               <PostCard
                 key={post.id}

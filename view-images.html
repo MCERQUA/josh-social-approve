@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Viewer - Match Posts to Images</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .posts-section, .images-section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .post-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #3a3a3a;
+            border-radius: 4px;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+        .post-item:hover {
+            background: #4a4a4a;
+        }
+        .post-item.selected {
+            border-left-color: #4CAF50;
+            background: #4a4a4a;
+        }
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .image-item {
+            cursor: pointer;
+            border: 3px solid transparent;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+        .image-item:hover {
+            border-color: #2196F3;
+            transform: scale(1.05);
+        }
+        .image-item.matched {
+            border-color: #4CAF50;
+        }
+        .image-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .image-item .filename {
+            padding: 5px;
+            background: #3a3a3a;
+            font-size: 11px;
+            text-align: center;
+        }
+        h2 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        .mapping-output {
+            margin-top: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            background: #1a1a1a;
+            color: #4CAF50;
+            border: 1px solid #4a4a4a;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .current-image {
+            position: sticky;
+            top: 20px;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .current-image img {
+            max-width: 100%;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Image-to-Post Matcher</h1>
+
+    <div class="current-image" id="currentView">
+        <h3>Click an image to view it large</h3>
+        <div id="largeImageContainer"></div>
+    </div>
+
+    <div class="container">
+        <div class="posts-section">
+            <h2>Posts (48)</h2>
+            <div id="postsList"></div>
+        </div>
+
+        <div class="images-section">
+            <h2>Images (54)</h2>
+            <div class="image-grid" id="imagesGrid"></div>
+        </div>
+    </div>
+
+    <div class="mapping-output">
+        <h2>Mappings (SQL Update Statements)</h2>
+        <textarea id="mappingsOutput" placeholder="Match images to posts, then copy the SQL here..."></textarea>
+        <br>
+        <button onclick="copyMappings()">Copy SQL to Clipboard</button>
+        <button onclick="downloadMappings()">Download SQL File</button>
+    </div>
+
+    <script>
+        const posts = [
+            {index: 0, title: "California HVAC Contractor Insurance", current_image: "CCA-_0000_Layer-54.png"},
+            {index: 1, title: "California HVAC Contractor Insurance", current_image: "CCA-_0001_Layer-53.png"},
+            {index: 2, title: "Alabama Contractor Workers Comp Requirements", current_image: "CCA-_0002_Layer-52.png"},
+            {index: 3, title: "Alabama Contractor Workers Comp Requirements", current_image: "CCA-_0003_Layer-51.png"},
+            {index: 4, title: "Alaska Roofing Contractor License Bond Requirements", current_image: "CCA-_0004_Layer-50.png"},
+            {index: 5, title: "Alaska Roofing Contractor License Bond Requirements", current_image: "CCA-_0005_Layer-49.png"},
+            {index: 6, title: "Arizona Contractor Insurance Guide", current_image: "CCA-_0006_Layer-48.png"},
+            {index: 7, title: "Arizona Contractor Insurance Guide", current_image: "CCA-_0007_Layer-47.png"},
+            {index: 8, title: "California Roofer General Liability Insurance", current_image: "CCA-_0008_Layer-46.png"},
+            {index: 9, title: "California Roofer General Liability Insurance", current_image: "CCA-_0009_Layer-45.png"},
+            {index: 10, title: "Certificate of Insurance Requirements for Contractors", current_image: "CCA-_0010_Layer-44.png"},
+            {index: 11, title: "Certificate of Insurance Requirements for Contractors", current_image: "CCA-_0011_Layer-43.png"},
+            {index: 12, title: "Commercial Auto Insurance for Contractors", current_image: "CCA-_0012_Layer-42.png"},
+            {index: 13, title: "Commercial Auto Insurance for Contractors", current_image: "CCA-_0013_Layer-41.png"},
+            {index: 14, title: "Florida Contractor Insurance Guide", current_image: "CCA-_0014_Layer-40.png"},
+            {index: 15, title: "Florida Contractor Insurance Guide", current_image: "CCA-_0015_Layer-39.png"},
+            {index: 16, title: "Ghost Workers Comp Policy", current_image: "CCA-_0016_Layer-38.png"},
+            {index: 17, title: "Ghost Workers Comp Policy", current_image: "CCA-_0017_Layer-37.png"},
+            {index: 18, title: "Illinois Contractor Insurance Guide", current_image: "CCA-_0018_Layer-36.png"},
+            {index: 19, title: "Illinois Contractor Insurance Guide", current_image: "CCA-_0019_Layer-35.png"},
+            {index: 20, title: "Kentucky Contractor Insurance Guide", current_image: "CCA-_0020_Layer-34.png"},
+            {index: 21, title: "Kentucky Contractor Insurance Guide", current_image: "CCA-_0021_Layer-33.png"},
+            {index: 22, title: "Louisiana Contractor Insurance Guide", current_image: "CCA-_0022_Layer-32.png"},
+            {index: 23, title: "Louisiana Contractor Insurance Guide", current_image: "CCA-_0023_Layer-31.png"},
+            {index: 24, title: "Michigan Contractor Insurance Guide", current_image: "CCA-_0024_Layer-30.png"},
+            {index: 25, title: "Michigan Contractor Insurance Guide", current_image: "CCA-_0025_Layer-29.png"},
+            {index: 26, title: "Minnesota Contractor Insurance Guide", current_image: "CCA-_0026_Layer-28.png"},
+            {index: 27, title: "Minnesota Contractor Insurance Guide", current_image: "CCA-_0027_Layer-27.png"},
+            {index: 28, title: "Nevada Contractor Insurance Guide", current_image: "CCA-_0028_Layer-26.png"},
+            {index: 29, title: "Nevada Contractor Insurance Guide", current_image: "CCA-_0029_Layer-25.png"},
+            {index: 30, title: "New Jersey Contractor Insurance Guide", current_image: "CCA-_0030_Layer-24.png"},
+            {index: 31, title: "New Jersey Contractor Insurance Guide", current_image: "CCA-_0031_Layer-23.png"},
+            {index: 32, title: "New York Contractor Insurance Guide", current_image: "CCA-_0032_Layer-22.png"},
+            {index: 33, title: "New York Contractor Insurance Guide", current_image: "CCA-_0033_Layer-21.png"},
+            {index: 34, title: "Pennsylvania Contractor Insurance Guide", current_image: "CCA-_0034_Layer-20.png"},
+            {index: 35, title: "Pennsylvania Contractor Insurance Guide", current_image: "CCA-_0035_Layer-19.png"},
+            {index: 36, title: "Professional Liability Insurance for Contractors", current_image: "CCA-_0036_Layer-18.png"},
+            {index: 37, title: "Professional Liability Insurance for Contractors", current_image: "CCA-_0037_Layer-17.png"},
+            {index: 38, title: "Subcontractor Insurance Requirements", current_image: "CCA-_0038_Layer-16.png"},
+            {index: 39, title: "Subcontractor Insurance Requirements", current_image: "CCA-_0039_Layer-15.png"},
+            {index: 40, title: "Texas Contractor Insurance Guide", current_image: "CCA-_0040_Layer-14.png"},
+            {index: 41, title: "Texas Contractor Insurance Guide", current_image: "CCA-_0041_Layer-13.png"},
+            {index: 42, title: "Utah Contractor Insurance Guide", current_image: "CCA-_0042_Layer-12.png"},
+            {index: 43, title: "Utah Contractor Insurance Guide", current_image: "CCA-_0043_Layer-11.png"},
+            {index: 44, title: "Vermont Contractor Insurance Guide", current_image: "CCA-_0044_Layer-10.png"},
+            {index: 45, title: "Vermont Contractor Insurance Guide", current_image: "CCA-_0045_Layer-9.png"},
+            {index: 46, title: "Workers Compensation Complete Guide", current_image: "CCA-_0046_Layer-8.png"},
+            {index: 47, title: "Workers Compensation Complete Guide", current_image: "CCA-_0047_Layer-7.png"}
+        ];
+
+        const images = Array.from({length: 54}, (_, i) => {
+            const layer = 54 - i;
+            return `CCA-_${String(i).padStart(4, '0')}_Layer-${layer}.png`;
+        });
+
+        const mappings = {};
+        let selectedPost = null;
+
+        function renderPosts() {
+            const container = document.getElementById('postsList');
+            container.innerHTML = posts.map(post => `
+                <div class="post-item" onclick="selectPost(${post.index})" id="post-${post.index}">
+                    <strong>${post.index}: ${post.title}</strong><br>
+                    <small>Current: ${post.current_image}</small><br>
+                    <small style="color: #4CAF50;">New: <span id="new-image-${post.index}">Not set</span></small>
+                </div>
+            `).join('');
+        }
+
+        function renderImages() {
+            const container = document.getElementById('imagesGrid');
+            container.innerHTML = images.map(img => `
+                <div class="image-item" onclick="selectImage('${img}')" id="img-${img}">
+                    <img src="/home/josh/Josh-AI/websites/JOSH-SOCIAL-APPROVE/social-approve-app/public/images/${img}"
+                         alt="${img}" loading="lazy">
+                    <div class="filename">${img}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectPost(index) {
+            selectedPost = index;
+            document.querySelectorAll('.post-item').forEach(el => el.classList.remove('selected'));
+            document.getElementById(`post-${index}`).classList.add('selected');
+        }
+
+        function selectImage(filename) {
+            if (selectedPost === null) {
+                alert('Please select a post first!');
+                return;
+            }
+
+            // Show large image
+            document.getElementById('largeImageContainer').innerHTML = `
+                <h3>Selected Image: ${filename}</h3>
+                <img src="/home/josh/Josh-AI/websites/JOSH-SOCIAL-APPROVE/social-approve-app/public/images/${filename}" style="max-width: 100%;">
+                <p>Will be matched to: <strong>${posts[selectedPost].title}</strong></p>
+            `;
+
+            // Update mapping
+            mappings[selectedPost] = filename;
+            document.getElementById(`new-image-${selectedPost}`).textContent = filename;
+            document.getElementById(`img-${filename}`).classList.add('matched');
+
+            // Generate SQL
+            generateSQL();
+
+            // Move to next post
+            if (selectedPost < posts.length - 1) {
+                selectPost(selectedPost + 1);
+            }
+        }
+
+        function generateSQL() {
+            const sql = Object.entries(mappings)
+                .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+                .map(([postIndex, imageName]) =>
+                    `UPDATE posts SET image_filename = '${imageName}' WHERE post_index = ${postIndex};`
+                )
+                .join('\n');
+
+            document.getElementById('mappingsOutput').value = sql;
+        }
+
+        function copyMappings() {
+            const textarea = document.getElementById('mappingsOutput');
+            textarea.select();
+            document.execCommand('copy');
+            alert('SQL copied to clipboard!');
+        }
+
+        function downloadMappings() {
+            const sql = document.getElementById('mappingsOutput').value;
+            const blob = new Blob([sql], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'update-image-mappings.sql';
+            a.click();
+        }
+
+        // Initialize
+        renderPosts();
+        renderImages();
+    </script>
+</body>
+</html>
