@@ -2,17 +2,12 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useUser, useClerk } from '@clerk/nextjs';
 
 export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-
-  // Placeholder for Clerk user data - will be replaced with actual Clerk user
-  const user = {
-    name: 'Josh Cotner',
-    email: 'josh@contractorschoiceagency.com',
-    imageUrl: null, // Will come from Clerk
-    isSignedIn: true // Will come from Clerk
-  };
+  const { user, isSignedIn } = useUser();
+  const { signOut, openSignIn } = useClerk();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-md">
@@ -30,21 +25,29 @@ export default function Header() {
         </Link>
 
         {/* User Menu */}
-        {user.isSignedIn ? (
+        {isSignedIn ? (
           <div className="relative">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
               className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800/50 transition-colors"
             >
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-white">{user.name}</p>
-                <p className="text-xs text-slate-400">{user.email}</p>
+                <p className="text-sm font-medium text-white">{user?.fullName || user?.username}</p>
+                <p className="text-xs text-slate-400">{user?.primaryEmailAddress?.emailAddress}</p>
               </div>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                <span className="text-sm font-semibold text-white">
-                  {user.name.split(' ').map(n => n[0]).join('')}
-                </span>
-              </div>
+              {user?.imageUrl ? (
+                <img
+                  src={user.imageUrl}
+                  alt={user.fullName || 'User'}
+                  className="w-9 h-9 rounded-full object-cover shadow-lg shadow-orange-500/20"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                  <span className="text-sm font-semibold text-white">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </span>
+                </div>
+              )}
               <svg
                 className={`w-4 h-4 text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`}
                 fill="none"
@@ -68,8 +71,8 @@ export default function Header() {
                 <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700/50 rounded-lg shadow-xl shadow-black/20 z-50 py-2">
                   {/* User Info (Mobile) */}
                   <div className="px-4 py-3 border-b border-slate-700/50 sm:hidden">
-                    <p className="text-sm font-medium text-white">{user.name}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{user.email}</p>
+                    <p className="text-sm font-medium text-white">{user?.fullName || user?.username}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{user?.primaryEmailAddress?.emailAddress}</p>
                   </div>
 
                   {/* Menu Items */}
@@ -101,9 +104,8 @@ export default function Header() {
                   <div className="py-1">
                     <button
                       className="flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors w-full text-left"
-                      onClick={() => {
-                        // Will be replaced with Clerk's signOut() function
-                        console.log('Sign out - Clerk integration pending');
+                      onClick={async () => {
+                        await signOut();
                         setUserMenuOpen(false);
                       }}
                     >
@@ -120,10 +122,7 @@ export default function Header() {
         ) : (
           <button
             className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors"
-            onClick={() => {
-              // Will be replaced with Clerk's signIn() function
-              console.log('Sign in - Clerk integration pending');
-            }}
+            onClick={() => openSignIn()}
           >
             Sign In
           </button>
