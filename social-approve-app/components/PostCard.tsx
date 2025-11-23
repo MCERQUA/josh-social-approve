@@ -8,9 +8,15 @@ interface PostCardProps {
   post: PostWithApproval;
   onApprove: (postId: number) => void;
   onReject: (postId: number) => void;
+  onUpdate?: (postId: number, updatedContent: { title: string; content: string }) => void;
 }
 
-export default function PostCard({ post, onApprove, onReject }: PostCardProps) {
+export default function PostCard({ post, onApprove, onReject, onUpdate }: PostCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(post.title);
+  const [editedContent, setEditedContent] = useState(post.content);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Convert URLs in text to clickable links
   const renderContentWithLinks = (content: string) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -32,6 +38,41 @@ export default function PostCard({ post, onApprove, onReject }: PostCardProps) {
       }
       return <span key={index}>{part}</span>;
     });
+  };
+
+  const handleSaveEdit = async () => {
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editedTitle,
+          content: editedContent
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to update post');
+
+      // Update the local post data
+      post.title = editedTitle;
+      post.content = editedContent;
+
+      setIsEditing(false);
+      if (onUpdate) {
+        onUpdate(post.id, { title: editedTitle, content: editedContent });
+      }
+    } catch (error) {
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedTitle(post.title);
+    setEditedContent(post.content);
+    setIsEditing(false);
   };
 
   const getPlatformIcon = () => {
@@ -116,12 +157,32 @@ export default function PostCard({ post, onApprove, onReject }: PostCardProps) {
         </div>
 
         {/* Post Title */}
-        <h4 className="font-semibold text-gray-900 text-sm mb-3">{post.title}</h4>
+        {isEditing ? (
+          <input
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            className="w-full font-semibold text-gray-900 text-sm mb-3 px-3 py-2 border-2 border-blue-400 rounded-lg focus:outline-none focus:border-blue-600"
+            placeholder="Post title..."
+          />
+        ) : (
+          <h4 className="font-semibold text-gray-900 text-sm mb-3">{post.title}</h4>
+        )}
 
         {/* Post Content */}
-        <p className="text-gray-800 whitespace-pre-wrap text-sm leading-relaxed">
-          {renderContentWithLinks(post.content)}
-        </p>
+        {isEditing ? (
+          <textarea
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            rows={8}
+            className="w-full text-gray-800 text-sm leading-relaxed px-3 py-2 border-2 border-blue-400 rounded-lg focus:outline-none focus:border-blue-600 resize-y"
+            placeholder="Post content..."
+          />
+        ) : (
+          <p className="text-gray-800 whitespace-pre-wrap text-sm leading-relaxed">
+            {renderContentWithLinks(post.content)}
+          </p>
+        )}
       </div>
 
       {/* Post Image */}
@@ -146,28 +207,62 @@ export default function PostCard({ post, onApprove, onReject }: PostCardProps) {
 
       {/* Action Buttons - Facebook style */}
       <div className="p-5 bg-white border-t-2 border-gray-100">
-        <div className="flex gap-3">
-          <button
-            onClick={() => onApprove(post.id)}
-            disabled={post.approval?.status === 'approved'}
-            className="flex-1 px-5 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-            </svg>
-            <span>Approve</span>
-          </button>
-          <button
-            onClick={() => onReject(post.id)}
-            disabled={post.approval?.status === 'rejected'}
-            className="flex-1 px-5 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            <span>Reject</span>
-          </button>
-        </div>
+        {isEditing ? (
+          <div className="flex gap-3">
+            <button
+              onClick={handleSaveEdit}
+              disabled={isSaving}
+              className="flex-1 px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+            </button>
+            <button
+              onClick={handleCancelEdit}
+              disabled={isSaving}
+              className="flex-1 px-5 py-3 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>Cancel</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <button
+              onClick={() => onApprove(post.id)}
+              disabled={post.approval?.status === 'approved'}
+              className="flex-1 px-5 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Approve</span>
+            </button>
+            <button
+              onClick={() => onReject(post.id)}
+              disabled={post.approval?.status === 'rejected'}
+              className="flex-1 px-5 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span>Reject</span>
+            </button>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-5 py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <span>Edit</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

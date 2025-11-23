@@ -93,6 +93,17 @@ export default function Home() {
     }
   };
 
+  const handleUpdate = (postId: number, updatedContent: { title: string; content: string }) => {
+    // Update the local post data immediately so user sees the change
+    setPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId
+          ? { ...post, title: updatedContent.title, content: updatedContent.content }
+          : post
+      )
+    );
+  };
+
   const filteredPosts = posts.filter(post => {
     if (filter === 'all') return true;
     return post.approval?.status === filter;
@@ -207,6 +218,7 @@ export default function Home() {
                 post={post}
                 onApprove={handleApprove}
                 onReject={handleReject}
+                onUpdate={handleUpdate}
               />
             ))}
           </div>
