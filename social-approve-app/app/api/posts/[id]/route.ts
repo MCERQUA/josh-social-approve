@@ -35,8 +35,7 @@ export async function PATCH(
       UPDATE posts
       SET
         title = ${title},
-        content = ${content},
-        updated_at = NOW()
+        content = ${content}
       WHERE id = ${postId}
       RETURNING *
     `;
