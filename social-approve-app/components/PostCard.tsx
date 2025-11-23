@@ -11,6 +11,29 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, onApprove, onReject }: PostCardProps) {
+  // Convert URLs in text to clickable links
+  const renderContentWithLinks = (content: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = content.split(urlRegex);
+
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline font-medium"
+          >
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   const getStatusColor = () => {
     switch (post.approval?.status) {
       case 'approved':
@@ -70,7 +93,7 @@ export default function PostCard({ post, onApprove, onReject }: PostCardProps) {
 
         {/* Post Content */}
         <p className="text-gray-800 whitespace-pre-wrap text-sm leading-relaxed">
-          {post.content}
+          {renderContentWithLinks(post.content)}
         </p>
       </div>
 
