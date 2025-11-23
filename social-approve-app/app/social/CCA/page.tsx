@@ -43,14 +43,11 @@ export default function CCAPage() {
       name: 'Post Approvals',
       description: 'Review and approve social media posts',
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
       href: '/social/CCA/approvals',
-      color: 'from-green-600 to-green-700',
-      borderColor: 'border-green-500',
-      hoverColor: 'hover:border-green-400',
       available: true
     },
     {
@@ -58,14 +55,11 @@ export default function CCAPage() {
       name: 'Create Posts',
       description: 'Create new social media content',
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
       ),
       href: '#',
-      color: 'from-blue-600 to-blue-700',
-      borderColor: 'border-blue-500',
-      hoverColor: 'hover:border-blue-400',
       available: false
     },
     {
@@ -73,14 +67,11 @@ export default function CCAPage() {
       name: 'Scheduled Posts',
       description: 'View and manage scheduled content',
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       ),
       href: '#',
-      color: 'from-purple-600 to-purple-700',
-      borderColor: 'border-purple-500',
-      hoverColor: 'hover:border-purple-400',
       available: false
     },
     {
@@ -88,82 +79,82 @@ export default function CCAPage() {
       name: 'Analytics',
       description: 'Track performance and engagement',
       icon: (
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
       href: '#',
-      color: 'from-orange-600 to-orange-700',
-      borderColor: 'border-orange-500',
-      hoverColor: 'hover:border-orange-400',
       available: false
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 shadow-2xl border-b border-slate-700">
-        <div className="max-w-7xl mx-auto px-8 py-8">
-          <Link href="/social" className="inline-flex items-center text-slate-400 hover:text-white mb-4 transition-colors">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <header className="border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <Link href="/social" className="inline-flex items-center text-slate-400 hover:text-white mb-4 transition-colors text-sm">
+            <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Brands
+            Brands
           </Link>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg">
-              <span className="text-2xl font-bold text-white">CCA</span>
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-lg font-semibold text-orange-400">CCA</span>
             </div>
             <div>
-              <h1 className="text-4xl font-bold text-white tracking-tight">Contractor's Choice Agency</h1>
-              <p className="text-slate-400 mt-1 text-lg">Social Media Management</p>
+              <h1 className="text-3xl font-semibold text-white">Contractor's Choice Agency</h1>
+              <p className="text-slate-400 text-sm mt-0.5">Social Media Management</p>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-8 py-12">
+      <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Overview */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold text-white mb-6">Post Statistics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-6 shadow-lg border border-slate-600">
-              <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Total Posts</p>
-              <p className="text-4xl font-bold text-white">{loading ? '...' : stats.total}</p>
+        <section className="mb-10">
+          <h2 className="text-lg font-medium text-white mb-4">Post Statistics</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-slate-600 transition-colors">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Total Posts</p>
+              <p className="text-3xl font-semibold text-white">{loading ? '—' : stats.total}</p>
             </div>
-            <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-2xl p-6 shadow-lg border border-yellow-500">
-              <p className="text-yellow-100 text-sm font-semibold uppercase tracking-wider mb-2">Pending</p>
-              <p className="text-4xl font-bold text-white">{loading ? '...' : stats.pending}</p>
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-amber-500/50 transition-colors">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Pending</p>
+              <p className="text-3xl font-semibold text-amber-400">{loading ? '—' : stats.pending}</p>
             </div>
-            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-6 shadow-lg border border-green-500">
-              <p className="text-green-100 text-sm font-semibold uppercase tracking-wider mb-2">Approved</p>
-              <p className="text-4xl font-bold text-white">{loading ? '...' : stats.approved}</p>
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-emerald-500/50 transition-colors">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Approved</p>
+              <p className="text-3xl font-semibold text-emerald-400">{loading ? '—' : stats.approved}</p>
             </div>
-            <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-2xl p-6 shadow-lg border border-red-500">
-              <p className="text-red-100 text-sm font-semibold uppercase tracking-wider mb-2">Rejected</p>
-              <p className="text-4xl font-bold text-white">{loading ? '...' : stats.rejected}</p>
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-rose-500/50 transition-colors">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Rejected</p>
+              <p className="text-3xl font-semibold text-rose-400">{loading ? '—' : stats.rejected}</p>
             </div>
           </div>
         </section>
 
         {/* Modules */}
         <section>
-          <h2 className="text-2xl font-bold text-white mb-6">Modules</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <h2 className="text-lg font-medium text-white mb-4">Modules</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {modules.map((module) => (
               module.available ? (
-                <Link key={module.id} href={module.href} className="group">
-                  <div className={`bg-gradient-to-br ${module.color} rounded-2xl p-6 shadow-lg border-2 ${module.borderColor} ${module.hoverColor} hover:shadow-2xl hover:scale-105 transition-all duration-200`}>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="text-white">{module.icon}</div>
-                      <h3 className="text-2xl font-bold text-white">{module.name}</h3>
-                    </div>
-                    <p className="text-white/90 mb-4">{module.description}</p>
-                    <div className="flex items-center text-white group-hover:text-white/90 transition-colors">
-                      <span className="font-semibold">Open module</span>
-                      <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <Link key={module.id} href={module.href} className="group block">
+                  <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-emerald-500/50 hover:bg-slate-800/70 transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                          {module.icon}
+                        </div>
+                        <div>
+                          <h3 className="text-base font-medium text-white mb-0.5">{module.name}</h3>
+                          <p className="text-sm text-slate-400">{module.description}</p>
+                        </div>
+                      </div>
+                      <svg className="w-5 h-5 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
@@ -171,15 +162,21 @@ export default function CCAPage() {
                 </Link>
               ) : (
                 <div key={module.id} className="relative">
-                  <div className={`bg-gradient-to-br ${module.color} rounded-2xl p-6 shadow-lg border-2 ${module.borderColor} opacity-50 cursor-not-allowed`}>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="text-white">{module.icon}</div>
-                      <h3 className="text-2xl font-bold text-white">{module.name}</h3>
+                  <div className="bg-slate-800/30 backdrop-blur-sm rounded-lg p-5 border border-slate-700/30 opacity-60 cursor-not-allowed">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-slate-700/30 border border-slate-600/30 flex items-center justify-center text-slate-500">
+                          {module.icon}
+                        </div>
+                        <div>
+                          <h3 className="text-base font-medium text-slate-500 mb-0.5">{module.name}</h3>
+                          <p className="text-sm text-slate-600">{module.description}</p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-white/90 mb-4">{module.description}</p>
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="bg-slate-900 text-white px-4 py-2 rounded-full font-semibold text-sm shadow-lg border border-slate-700">
+                  <div className="absolute top-1/2 right-4 -translate-y-1/2">
+                    <span className="bg-slate-700/50 text-slate-400 px-2.5 py-1 rounded text-xs font-medium border border-slate-600/50">
                       Coming Soon
                     </span>
                   </div>
