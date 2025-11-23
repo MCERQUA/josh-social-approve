@@ -136,9 +136,9 @@ export default function Home() {
     <div className="min-h-screen bg-gray-800">
       {/* Header */}
       <header className="bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 shadow-2xl border-b border-slate-700 sticky top-0 z-10 backdrop-blur-sm">
-        <div className="max-w-4xl mx-auto px-8 py-10">
+        <div className="max-w-4xl mx-auto px-8 py-12">
           {/* Title Section */}
-          <div className="flex items-center justify-between mb-16">
+          <div className="flex items-center justify-between mb-20">
             <div>
               <h1 className="text-4xl font-bold text-white tracking-tight bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Social Media Approval Dashboard</h1>
               <p className="text-sm text-slate-400 mt-3 font-medium tracking-wide">Contractor's Choice Agency</p>
@@ -155,27 +155,27 @@ export default function Home() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-6 mb-14">
-            <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-6 text-center shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all duration-200">
-              <p className="text-4xl font-bold text-white mb-3">{stats.total}</p>
+          <div className="grid grid-cols-4 gap-8 mb-16">
+            <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl p-8 text-center shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all duration-200">
+              <p className="text-4xl font-bold text-white mb-4">{stats.total}</p>
               <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Total Posts</p>
             </div>
-            <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-2xl p-6 text-center shadow-lg border border-yellow-500 hover:shadow-xl hover:border-yellow-400 transition-all duration-200">
-              <p className="text-4xl font-bold text-white mb-3">{stats.pending}</p>
+            <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-2xl p-8 text-center shadow-lg border border-yellow-500 hover:shadow-xl hover:border-yellow-400 transition-all duration-200">
+              <p className="text-4xl font-bold text-white mb-4">{stats.pending}</p>
               <p className="text-xs font-semibold text-yellow-100 uppercase tracking-wider">Pending</p>
             </div>
-            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-6 text-center shadow-lg border border-green-500 hover:shadow-xl hover:border-green-400 transition-all duration-200">
-              <p className="text-4xl font-bold text-white mb-3">{stats.approved}</p>
+            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl p-8 text-center shadow-lg border border-green-500 hover:shadow-xl hover:border-green-400 transition-all duration-200">
+              <p className="text-4xl font-bold text-white mb-4">{stats.approved}</p>
               <p className="text-xs font-semibold text-green-100 uppercase tracking-wider">Approved</p>
             </div>
-            <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-2xl p-6 text-center shadow-lg border border-red-500 hover:shadow-xl hover:border-red-400 transition-all duration-200">
-              <p className="text-4xl font-bold text-white mb-3">{stats.rejected}</p>
+            <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-2xl p-8 text-center shadow-lg border border-red-500 hover:shadow-xl hover:border-red-400 transition-all duration-200">
+              <p className="text-4xl font-bold text-white mb-4">{stats.rejected}</p>
               <p className="text-xs font-semibold text-red-100 uppercase tracking-wider">Rejected</p>
             </div>
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex gap-4 pt-10 mt-6 border-t border-slate-700">
+          <div className="flex gap-4 pt-12 mt-8 border-t border-slate-700 pb-4">
             {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
               <button
                 key={f}
@@ -194,7 +194,7 @@ export default function Home() {
       </header>
 
       {/* Posts Feed */}
-      <main className="max-w-4xl mx-auto px-6 pt-16 pb-12">
+      <main className="max-w-4xl mx-auto px-6 pt-20 pb-12">
         {filteredPosts.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-300 text-lg">No posts found.</p>
