@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import PostCard from '@/components/PostCard';
 import RejectionModal from '@/components/RejectionModal';
+import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import { PostWithApproval } from '@/types';
 
 // Force dynamic rendering to avoid build-time Clerk errors
@@ -21,6 +22,16 @@ export default function Home() {
     postId: null,
     postTitle: ''
   });
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    postId: number | null;
+    postTitle: string;
+  }>({
+    isOpen: false,
+    postId: null,
+    postTitle: ''
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
 
   useEffect(() => {
@@ -105,6 +116,40 @@ export default function Home() {
           : post
       )
     );
+  };
+
+  const handleDelete = (postId: number) => {
+    const post = posts.find(p => p.id === postId);
+    if (post) {
+      setDeleteModal({
+        isOpen: true,
+        postId,
+        postTitle: post.title
+      });
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.postId) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/posts/${deleteModal.postId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete post');
+
+      // Remove post from local state immediately
+      setPosts(prevPosts => prevPosts.filter(post => post.id !== deleteModal.postId));
+
+      // Close modal
+      setDeleteModal({ isOpen: false, postId: null, postTitle: '' });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredPosts = posts.filter(post => {
@@ -222,6 +267,7 @@ export default function Home() {
                 onApprove={handleApprove}
                 onReject={handleReject}
                 onUpdate={handleUpdate}
+                onDelete={handleDelete}
               />
             ))}
           </div>
@@ -234,6 +280,15 @@ export default function Home() {
         onClose={() => setRejectionModal({ isOpen: false, postId: null, postTitle: '' })}
         onSubmit={handleRejectionSubmit}
         postTitle={rejectionModal.postTitle}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, postId: null, postTitle: '' })}
+        onConfirm={handleDeleteConfirm}
+        postTitle={deleteModal.postTitle}
+        isDeleting={isDeleting}
       />
     </div>
   );
