@@ -8,6 +8,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  # Omit Clerk-related keys from secrets scanning - Clerk bundles encrypted tokens
-  # into edge middleware which triggers false positives
-  SECRETS_SCAN_OMIT_KEYS = "CLERK_SECRET_KEY,DATABASE_URL,NETLIFY_DATABASE_URL"
+  # Omit Clerk-related keys from secrets scanning
+  # - CLERK_SECRET_KEY: bundled encrypted into edge middleware
+  # - DATABASE_URL/NETLIFY_DATABASE_URL: server-side only but detected in SSR chunks
+  # - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: intentionally public (NEXT_PUBLIC_ prefix)
+  SECRETS_SCAN_OMIT_KEYS = "CLERK_SECRET_KEY,DATABASE_URL,NETLIFY_DATABASE_URL,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
