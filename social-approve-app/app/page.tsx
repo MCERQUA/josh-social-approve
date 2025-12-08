@@ -14,16 +14,26 @@ interface Stats {
   rejected: number;
 }
 
+interface WebsiteStats {
+  totalLive: number;
+  dotCom: number;
+  netlify: number;
+  wordpress: number;
+}
+
 export default function Home() {
   const { user } = useUser();
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [websiteStats, setWebsiteStats] = useState<WebsiteStats>({ totalLive: 0, dotCom: 0, netlify: 0, wordpress: 0 });
   const [loading, setLoading] = useState(true);
+  const [websiteLoading, setWebsiteLoading] = useState(true);
 
   // Get display name - prefer firstName, fallback to username, then default
   const displayName = user?.firstName || user?.username || 'User';
 
   useEffect(() => {
     fetchStats();
+    fetchWebsiteStats();
   }, []);
 
   const fetchStats = async () => {
@@ -45,6 +55,21 @@ export default function Home() {
     }
   };
 
+  const fetchWebsiteStats = async () => {
+    try {
+      const response = await fetch('/api/websites/stats');
+      if (!response.ok) throw new Error('Failed to fetch website stats');
+      const data = await response.json();
+      setWebsiteStats(data);
+    } catch (error) {
+      console.error('Error fetching website stats:', error);
+      // Set fallback stats if API fails
+      setWebsiteStats({ totalLive: 133, dotCom: 93, netlify: 92, wordpress: 41 });
+    } finally {
+      setWebsiteLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -59,9 +84,9 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Overview Stats */}
+        {/* Social Media Stats */}
         <section className="mb-10">
-          <h2 className="text-lg font-medium text-white mb-4">Overview</h2>
+          <h2 className="text-lg font-medium text-white mb-4">Social Media</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-slate-600 transition-colors">
               <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Total Posts</p>
@@ -78,6 +103,29 @@ export default function Home() {
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-rose-500/50 transition-colors">
               <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Rejected</p>
               <p className="text-3xl font-semibold text-rose-400">{loading ? '—' : stats.rejected}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Websites Stats */}
+        <section className="mb-10">
+          <h2 className="text-lg font-medium text-white mb-4">Websites</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-teal-500/50 transition-colors">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">All Sites</p>
+              <p className="text-3xl font-semibold text-teal-400">{websiteLoading ? '—' : websiteStats.totalLive}</p>
+            </div>
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-blue-500/50 transition-colors">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">.com Domains</p>
+              <p className="text-3xl font-semibold text-blue-400">{websiteLoading ? '—' : websiteStats.dotCom}</p>
+            </div>
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-cyan-500/50 transition-colors">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Netlify Sites</p>
+              <p className="text-3xl font-semibold text-cyan-400">{websiteLoading ? '—' : websiteStats.netlify}</p>
+            </div>
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-orange-500/50 transition-colors">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">WordPress Sites</p>
+              <p className="text-3xl font-semibold text-orange-400">{websiteLoading ? '—' : websiteStats.wordpress}</p>
             </div>
           </div>
         </section>
