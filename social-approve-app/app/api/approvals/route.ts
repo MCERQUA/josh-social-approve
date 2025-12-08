@@ -4,6 +4,7 @@ import { sql } from '@/lib/db';
 // Force dynamic rendering - don't try to execute during build
 export const dynamic = 'force-dynamic';
 
+// Text approval (Stage 1)
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -23,15 +24,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // Determine image_status based on text approval
+    // If text is approved, image goes to 'pending' for review
+    // If text is rejected or pending, image stays 'not_ready'
+    const imageStatus = status === 'approved' ? 'pending' : 'not_ready';
+
     // Update or insert approval
     const result = await sql`
-      INSERT INTO approvals (post_id, status, rejection_reason, reviewed_at)
-      VALUES (${post_id}, ${status}, ${rejection_reason || null}, NOW())
+      INSERT INTO approvals (post_id, status, rejection_reason, reviewed_at, image_status)
+      VALUES (${post_id}, ${status}, ${rejection_reason || null}, NOW(), ${imageStatus})
       ON CONFLICT (post_id)
       DO UPDATE SET
         status = ${status},
         rejection_reason = ${rejection_reason || null},
-        reviewed_at = NOW()
+        reviewed_at = NOW(),
+        image_status = ${imageStatus},
+        image_rejection_reason = CASE WHEN ${status} = 'rejected' THEN NULL ELSE approvals.image_rejection_reason END
       RETURNING *
     `;
 

@@ -16,7 +16,10 @@ export async function GET() {
           'status', a.status,
           'rejection_reason', a.rejection_reason,
           'reviewed_by', a.reviewed_by,
-          'reviewed_at', a.reviewed_at
+          'reviewed_at', a.reviewed_at,
+          'image_status', COALESCE(a.image_status, 'not_ready'),
+          'image_rejection_reason', a.image_rejection_reason,
+          'image_reviewed_at', a.image_reviewed_at
         ) as approval
       FROM posts p
       LEFT JOIN approvals a ON p.id = a.post_id

@@ -1,16 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import PostCard from '@/components/PostCard';
-import RejectionModal from '@/components/RejectionModal';
-import DeleteConfirmModal from '@/components/DeleteConfirmModal';
+import ImageApprovalCard from '@/components/ImageApprovalCard';
+import ImageRejectionModal from '@/components/ImageRejectionModal';
 import { PostWithApproval } from '@/types';
+import Link from 'next/link';
 
-// Force dynamic rendering to avoid build-time Clerk errors
+// Force dynamic rendering to avoid build-time errors
 export const dynamic = 'force-dynamic';
 
-export default function Home() {
+export default function ImageApprovalsPage() {
   const [posts, setPosts] = useState<PostWithApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,17 +22,7 @@ export default function Home() {
     postId: null,
     postTitle: ''
   });
-  const [deleteModal, setDeleteModal] = useState<{
-    isOpen: boolean;
-    postId: number | null;
-    postTitle: string;
-  }>({
-    isOpen: false,
-    postId: null,
-    postTitle: ''
-  });
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
 
   useEffect(() => {
     fetchPosts();
@@ -45,7 +34,11 @@ export default function Home() {
       const response = await fetch('/api/posts');
       if (!response.ok) throw new Error('Failed to fetch posts');
       const data = await response.json();
-      setPosts(data);
+      // Only show posts that have approved text (eligible for image review)
+      const eligiblePosts = data.filter((p: PostWithApproval) =>
+        p.approval?.status === 'approved'
+      );
+      setPosts(eligiblePosts);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -53,18 +46,18 @@ export default function Home() {
     }
   };
 
-  const handleApprove = async (postId: number) => {
+  const handleApproveImage = async (postId: number) => {
     try {
-      const response = await fetch('/api/approvals', {
+      const response = await fetch('/api/image-approvals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           post_id: postId,
-          status: 'approved'
+          image_status: 'approved'
         })
       });
 
-      if (!response.ok) throw new Error('Failed to approve post');
+      if (!response.ok) throw new Error('Failed to approve image');
 
       // Refresh posts
       fetchPosts();
@@ -73,7 +66,7 @@ export default function Home() {
     }
   };
 
-  const handleReject = (postId: number) => {
+  const handleRejectImage = (postId: number) => {
     const post = posts.find(p => p.id === postId);
     if (post) {
       setRejectionModal({
@@ -88,17 +81,17 @@ export default function Home() {
     if (!rejectionModal.postId) return;
 
     try {
-      const response = await fetch('/api/approvals', {
+      const response = await fetch('/api/image-approvals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           post_id: rejectionModal.postId,
-          status: 'rejected',
-          rejection_reason: reason
+          image_status: 'rejected',
+          image_rejection_reason: reason
         })
       });
 
-      if (!response.ok) throw new Error('Failed to reject post');
+      if (!response.ok) throw new Error('Failed to reject image');
 
       // Close modal and refresh posts
       setRejectionModal({ isOpen: false, postId: null, postTitle: '' });
@@ -108,65 +101,16 @@ export default function Home() {
     }
   };
 
-  const handleUpdate = (postId: number, updatedContent: { title: string; content: string }) => {
-    // Update the local post data immediately so user sees the change
-    setPosts(prevPosts =>
-      prevPosts.map(post =>
-        post.id === postId
-          ? { ...post, title: updatedContent.title, content: updatedContent.content }
-          : post
-      )
-    );
-  };
-
-  const handleDelete = (postId: number) => {
-    const post = posts.find(p => p.id === postId);
-    if (post) {
-      setDeleteModal({
-        isOpen: true,
-        postId,
-        postTitle: post.title
-      });
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteModal.postId) return;
-
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/posts/${deleteModal.postId}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Failed to delete post');
-
-      // Remove post from local state immediately
-      setPosts(prevPosts => prevPosts.filter(post => post.id !== deleteModal.postId));
-
-      // Close modal
-      setDeleteModal({ isOpen: false, postId: null, postTitle: '' });
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const filteredPosts = posts.filter(post => {
     if (filter === 'all') return true;
-    return post.approval?.status === filter;
+    return post.approval?.image_status === filter;
   });
 
   const stats = {
     total: posts.length,
-    pending: posts.filter(p => p.approval?.status === 'pending').length,
-    approved: posts.filter(p => p.approval?.status === 'approved').length,
-    rejected: posts.filter(p => p.approval?.status === 'rejected').length,
-    // Image approval stats (for posts with approved text)
-    imagePending: posts.filter(p => p.approval?.status === 'approved' && p.approval?.image_status === 'pending').length,
-    imageApproved: posts.filter(p => p.approval?.status === 'approved' && p.approval?.image_status === 'approved').length,
-    fullyApproved: posts.filter(p => p.approval?.status === 'approved' && p.approval?.image_status === 'approved').length
+    pending: posts.filter(p => p.approval?.image_status === 'pending').length,
+    approved: posts.filter(p => p.approval?.image_status === 'approved').length,
+    rejected: posts.filter(p => p.approval?.image_status === 'rejected').length
   };
 
   if (loading) {
@@ -174,7 +118,7 @@ export default function Home() {
       <div className="min-h-screen bg-gray-800 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-300">Loading posts...</p>
+          <p className="mt-4 text-gray-300">Loading posts for image approval...</p>
         </div>
       </div>
     );
@@ -200,27 +144,31 @@ export default function Home() {
     <div className="min-h-screen bg-gray-800">
       {/* Header */}
       <header className="bg-gradient-to-br from-slate-800 via-slate-900 to-gray-900 shadow-2xl border-b border-slate-700 sticky top-0 z-10 backdrop-blur-sm">
-        <div className="max-w-4xl mx-auto !px-6 !py-6">
+        <div className="max-w-5xl mx-auto !px-6 !py-6">
+          {/* Navigation Breadcrumb */}
+          <div className="flex items-center gap-2 text-sm text-slate-400 !mb-4">
+            <Link href="/social/CCA/approvals" className="hover:text-blue-400 transition-colors">
+              Text Approvals
+            </Link>
+            <span>/</span>
+            <span className="text-white font-medium">Image Approvals</span>
+          </div>
+
           {/* Title Section */}
           <div className="flex items-center justify-between !mb-6">
             <div>
-              <h1 className="text-4xl font-bold text-white tracking-tight bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Text Approval Dashboard</h1>
-              <p className="text-sm text-slate-400 mt-3 font-medium tracking-wide">Stage 1: Review Post Content</p>
+              <h1 className="text-4xl font-bold text-white tracking-tight bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Image Approval Dashboard</h1>
+              <p className="text-sm text-slate-400 mt-3 font-medium tracking-wide">Stage 2: Review Generated Images</p>
             </div>
             <div className="flex gap-3">
               <Link
-                href="/social/CCA/image-approvals"
-                className={`px-6 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-xl transition-all duration-200 flex items-center gap-2.5 shadow-lg hover:shadow-2xl font-semibold hover:scale-105 border border-cyan-500 relative ${stats.imagePending > 0 ? 'animate-pulse' : ''}`}
+                href="/social/CCA/approvals"
+                className="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-xl transition-all duration-200 flex items-center gap-2.5 shadow-lg hover:shadow-xl font-semibold border border-slate-500"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                <span>Image Approvals</span>
-                {stats.imagePending > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-yellow-500 text-yellow-900 text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
-                    {stats.imagePending}
-                  </span>
-                )}
+                <span>Text Approvals</span>
               </Link>
               <button
                 onClick={fetchPosts}
@@ -237,15 +185,15 @@ export default function Home() {
           {/* Workflow Indicator */}
           <div className="flex items-center gap-4 !mb-6 p-4 bg-slate-700/50 rounded-xl border border-slate-600">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm">1</div>
-              <span className="text-blue-400 font-medium">Text Review</span>
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm">1</div>
+              <span className="text-green-400 font-medium">Text Approved</span>
             </div>
             <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-slate-400 font-bold text-sm">2</div>
-              <span className="text-slate-400 font-medium">Image Review</span>
+              <div className="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center text-white font-bold text-sm">2</div>
+              <span className="text-cyan-400 font-medium">Image Review</span>
             </div>
             <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -254,89 +202,85 @@ export default function Home() {
               <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-slate-400 font-bold text-sm">3</div>
               <span className="text-slate-400 font-medium">Ready to Publish</span>
             </div>
-            {stats.fullyApproved > 0 && (
-              <div className="ml-auto px-3 py-1 bg-green-600 text-white text-sm font-medium rounded-full">
-                {stats.fullyApproved} Ready
-              </div>
-            )}
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-4 !gap-4 !mb-6">
             <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl !p-5 text-center shadow-lg border border-slate-600 hover:shadow-xl hover:border-slate-500 transition-all duration-200">
               <p className="text-4xl font-bold text-white !mb-2">{stats.total}</p>
-              <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Total Posts</p>
+              <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Text Approved</p>
             </div>
             <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-2xl !p-5 text-center shadow-lg border border-yellow-500 hover:shadow-xl hover:border-yellow-400 transition-all duration-200">
               <p className="text-4xl font-bold text-white !mb-2">{stats.pending}</p>
-              <p className="text-xs font-semibold text-yellow-100 uppercase tracking-wider">Pending</p>
+              <p className="text-xs font-semibold text-yellow-100 uppercase tracking-wider">Image Pending</p>
             </div>
             <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl !p-5 text-center shadow-lg border border-green-500 hover:shadow-xl hover:border-green-400 transition-all duration-200">
               <p className="text-4xl font-bold text-white !mb-2">{stats.approved}</p>
-              <p className="text-xs font-semibold text-green-100 uppercase tracking-wider">Approved</p>
+              <p className="text-xs font-semibold text-green-100 uppercase tracking-wider">Image Approved</p>
             </div>
             <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-2xl !p-5 text-center shadow-lg border border-red-500 hover:shadow-xl hover:border-red-400 transition-all duration-200">
               <p className="text-4xl font-bold text-white !mb-2">{stats.rejected}</p>
-              <p className="text-xs font-semibold text-red-100 uppercase tracking-wider">Rejected</p>
+              <p className="text-xs font-semibold text-red-100 uppercase tracking-wider">Image Rejected</p>
             </div>
           </div>
 
           {/* Filter Tabs */}
           <div className="flex !gap-3 !pt-6 !mt-4 border-t border-slate-700 !pb-2">
-            {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
+            {(['pending', 'all', 'approved', 'rejected'] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`flex-1 px-5 py-3 rounded-xl font-semibold transition-all duration-200 capitalize shadow-sm ${
                   filter === f
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-xl scale-105 hover:from-blue-700 hover:to-blue-800 border border-blue-500'
+                    ? 'bg-gradient-to-r from-cyan-600 to-teal-600 text-white shadow-xl scale-105 hover:from-cyan-700 hover:to-teal-700 border border-cyan-500'
                     : 'bg-slate-700 text-slate-300 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 hover:shadow-lg'
                 }`}
               >
-                {f}
+                {f === 'pending' ? 'Needs Review' : f}
               </button>
             ))}
           </div>
         </div>
       </header>
 
-      {/* Posts Feed */}
-      <main className="max-w-4xl mx-auto !px-6 !pt-8 !pb-12">
+      {/* Posts Grid */}
+      <main className="max-w-5xl mx-auto !px-6 !pt-8 !pb-12">
         {filteredPosts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-300 text-lg">No posts found.</p>
+            <p className="text-gray-300 text-lg">
+              {filter === 'pending'
+                ? 'No images pending review. Approve some text posts first!'
+                : 'No posts found in this category.'}
+            </p>
+            {filter === 'pending' && (
+              <Link
+                href="/social/CCA/approvals"
+                className="inline-block mt-4 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+              >
+                Go to Text Approvals
+              </Link>
+            )}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {filteredPosts.map((post) => (
-              <PostCard
+              <ImageApprovalCard
                 key={post.id}
                 post={post}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onUpdate={handleUpdate}
-                onDelete={handleDelete}
+                onApprove={handleApproveImage}
+                onReject={handleRejectImage}
               />
             ))}
           </div>
         )}
       </main>
 
-      {/* Rejection Modal */}
-      <RejectionModal
+      {/* Image Rejection Modal */}
+      <ImageRejectionModal
         isOpen={rejectionModal.isOpen}
         onClose={() => setRejectionModal({ isOpen: false, postId: null, postTitle: '' })}
         onSubmit={handleRejectionSubmit}
         postTitle={rejectionModal.postTitle}
-      />
-
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        isOpen={deleteModal.isOpen}
-        onClose={() => setDeleteModal({ isOpen: false, postId: null, postTitle: '' })}
-        onConfirm={handleDeleteConfirm}
-        postTitle={deleteModal.postTitle}
-        isDeleting={isDeleting}
       />
     </div>
   );
