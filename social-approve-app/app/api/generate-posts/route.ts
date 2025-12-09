@@ -38,19 +38,19 @@ export async function POST(request: Request) {
     const platformName = platform === 'facebook' ? 'Facebook' : 'Google Business Profile';
     const platformGuidelines = platform === 'facebook'
       ? `- Use emojis strategically (1-3 per post)
-- Include a clear call to action
+- Include a clear call to action with link to contractorschoiceagency.com
 - Keep under 250 words
 - Use hashtags (3-5 relevant ones)
 - Engaging, conversational tone
 - IMPORTANT: Use line breaks (\\n\\n) to separate paragraphs for readability
-- Structure: Hook/question -> Main content -> CTA -> Hashtags (each on separate lines)`
+- Structure: Hook/question -> Main content -> CTA with website -> Hashtags (each on separate lines)`
       : `- Professional, informative tone
 - Include phone number: 844-967-5247
 - Keep concise (under 200 words)
 - Focus on local relevance
-- Include a "Learn More: [LINK]" or similar CTA
+- Include link to contractorschoiceagency.com
 - IMPORTANT: Use line breaks (\\n\\n) to separate paragraphs for readability
-- Structure: Opening statement -> Key info -> CTA with link -> Phone number (each on separate lines)`;
+- Structure: Opening statement -> Key info -> CTA with website and phone number (each on separate lines)`;
 
     const prompt = `You are a social media content writer for Contractor's Choice Agency, a contractor insurance agency specializing in insurance for contractors (roofing, HVAC, spray foam, plumbing, electrical, etc.).
 
@@ -67,7 +67,7 @@ Important brand guidelines:
 - Use specific examples and numbers when possible
 - Address pain points contractors face
 - Position CCA as the expert solution
-- Include "[LINK]" as placeholder for article links
+- Use contractorschoiceagency.com as the website link (not placeholder text)
 
 Generate exactly 3 variations with DIFFERENT approaches:
 1. One that's more educational/informative
