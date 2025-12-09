@@ -23,6 +23,9 @@ export default function CreatePostPage() {
   const [platform, setPlatform] = useState<'facebook' | 'google_business'>('facebook');
   const [variations, setVariations] = useState<GeneratedVariation[]>([]);
   const [selectedVariation, setSelectedVariation] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
@@ -100,7 +103,32 @@ export default function CreatePostPage() {
     setStep('input');
     setVariations([]);
     setSelectedVariation(null);
+    setEditingId(null);
     setError(null);
+  };
+
+  const startEditing = (variation: GeneratedVariation) => {
+    setEditingId(variation.id);
+    setEditTitle(variation.title);
+    setEditContent(variation.content);
+    setSelectedVariation(variation.id);
+  };
+
+  const saveEdit = () => {
+    if (editingId === null) return;
+
+    setVariations(prev => prev.map(v =>
+      v.id === editingId
+        ? { ...v, title: editTitle, content: editContent }
+        : v
+    ));
+    setEditingId(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditTitle('');
+    setEditContent('');
   };
 
   return (
@@ -150,7 +178,7 @@ export default function CreatePostPage() {
               step === 'saving' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' :
               'bg-slate-700 text-slate-400'
             }`}>2</div>
-            <span className="font-medium text-sm">Select Variation</span>
+            <span className="font-medium text-sm">Select & Edit</span>
           </div>
           <div className="flex-1 h-0.5 bg-slate-700">
             <div className={`h-full transition-all duration-300 ${
@@ -276,7 +304,10 @@ export default function CreatePostPage() {
         {step === 'select' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-white">Select Your Preferred Version</h2>
+              <div>
+                <h2 className="text-lg font-medium text-white">Select Your Preferred Version</h2>
+                <p className="text-sm text-slate-400 mt-1">Click Edit to customize any variation</p>
+              </div>
               <button
                 onClick={handleStartOver}
                 className="text-sm text-slate-400 hover:text-white transition-colors"
@@ -289,40 +320,103 @@ export default function CreatePostPage() {
               {variations.map((variation, index) => (
                 <div
                   key={variation.id}
-                  onClick={() => setSelectedVariation(variation.id)}
-                  className={`relative bg-slate-800/50 backdrop-blur-sm rounded-xl border-2 p-5 cursor-pointer transition-all ${
+                  className={`relative bg-slate-800/50 backdrop-blur-sm rounded-xl border-2 p-5 transition-all ${
                     selectedVariation === variation.id
                       ? 'border-emerald-500/70 bg-emerald-500/5'
                       : 'border-slate-700/50 hover:border-slate-600'
                   }`}
                 >
-                  {/* Selection indicator */}
-                  <div className="absolute top-4 right-4">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                      selectedVariation === variation.id
-                        ? 'border-emerald-500 bg-emerald-500'
-                        : 'border-slate-500'
-                    }`}>
-                      {selectedVariation === variation.id && (
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                  {/* Edit Mode */}
+                  {editingId === variation.id ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/20 rounded-full text-xs font-medium text-amber-400">
+                          Editing Version {index + 1}
+                        </span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={cancelEdit}
+                            className="px-3 py-1.5 text-sm text-slate-400 hover:text-white transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={saveEdit}
+                            className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                          >
+                            Save Changes
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1.5">Title</label>
+                        <input
+                          type="text"
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1.5">Content</label>
+                        <textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          rows={8}
+                          className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500/50 resize-none"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      {/* Selection indicator and Edit button */}
+                      <div className="absolute top-4 right-4 flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditing(variation);
+                          }}
+                          className="px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <div
+                          onClick={() => setSelectedVariation(variation.id)}
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all cursor-pointer ${
+                            selectedVariation === variation.id
+                              ? 'border-emerald-500 bg-emerald-500'
+                              : 'border-slate-500 hover:border-slate-400'
+                          }`}
+                        >
+                          {selectedVariation === variation.id && (
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
 
-                  {/* Version label */}
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-700/50 rounded-full text-xs font-medium text-slate-300 mb-3">
-                    <span>Version {index + 1}</span>
-                    <span className="text-slate-500">|</span>
-                    <span className={platform === 'facebook' ? 'text-blue-400' : 'text-emerald-400'}>
-                      {platform === 'facebook' ? 'Facebook' : 'Google Business'}
-                    </span>
-                  </div>
+                      {/* Version label */}
+                      <div
+                        onClick={() => setSelectedVariation(variation.id)}
+                        className="cursor-pointer"
+                      >
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-700/50 rounded-full text-xs font-medium text-slate-300 mb-3">
+                          <span>Version {index + 1}</span>
+                          <span className="text-slate-500">|</span>
+                          <span className={platform === 'facebook' ? 'text-blue-400' : 'text-emerald-400'}>
+                            {platform === 'facebook' ? 'Facebook' : 'Google Business'}
+                          </span>
+                        </div>
 
-                  {/* Content */}
-                  <h3 className="text-white font-medium mb-2 pr-8">{variation.title}</h3>
-                  <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">{variation.content}</p>
+                        {/* Content */}
+                        <h3 className="text-white font-medium mb-2 pr-24">{variation.title}</h3>
+                        <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">{variation.content}</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
@@ -330,13 +424,13 @@ export default function CreatePostPage() {
             {/* Approve Button */}
             <button
               onClick={handleApprove}
-              disabled={selectedVariation === null}
+              disabled={selectedVariation === null || editingId !== null}
               className="w-full px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed text-white rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              Approve Selected Version
+              {editingId !== null ? 'Save edits first' : 'Approve Selected Version'}
             </button>
           </div>
         )}
