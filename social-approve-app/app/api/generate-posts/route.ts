@@ -41,12 +41,16 @@ export async function POST(request: Request) {
 - Include a clear call to action
 - Keep under 250 words
 - Use hashtags (3-5 relevant ones)
-- Engaging, conversational tone`
+- Engaging, conversational tone
+- IMPORTANT: Use line breaks (\\n\\n) to separate paragraphs for readability
+- Structure: Hook/question -> Main content -> CTA -> Hashtags (each on separate lines)`
       : `- Professional, informative tone
 - Include phone number: 844-967-5247
 - Keep concise (under 200 words)
 - Focus on local relevance
-- Include a "Learn More: [LINK]" or similar CTA`;
+- Include a "Learn More: [LINK]" or similar CTA
+- IMPORTANT: Use line breaks (\\n\\n) to separate paragraphs for readability
+- Structure: Opening statement -> Key info -> CTA with link -> Phone number (each on separate lines)`;
 
     const prompt = `You are a social media content writer for Contractor's Choice Agency, a contractor insurance agency specializing in insurance for contractors (roofing, HVAC, spray foam, plumbing, electrical, etc.).
 
@@ -69,6 +73,13 @@ Generate exactly 3 variations with DIFFERENT approaches:
 1. One that's more educational/informative
 2. One that emphasizes urgency/consequences of non-compliance
 3. One that's solution-focused/benefit-driven
+
+CRITICAL FORMATTING RULES:
+- Each post MUST have multiple paragraphs separated by blank lines
+- Use \\n\\n in the JSON to create line breaks between sections
+- Never write posts as a single wall of text
+- Example structure for Facebook:
+  "Hook question or statement\\n\\nMain content paragraph explaining the topic.\\n\\nCall to action: [LINK]\\n\\n#Hashtag1 #Hashtag2"
 
 IMPORTANT: Respond ONLY with valid JSON, no markdown or code blocks. Use this exact format:
 {"variations":[{"title":"Short title","content":"Post content"},{"title":"Short title","content":"Post content"},{"title":"Short title","content":"Post content"}]}`;
