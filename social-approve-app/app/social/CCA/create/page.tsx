@@ -378,7 +378,7 @@ export default function CreatePostPage() {
                             e.stopPropagation();
                             startEditing(variation);
                           }}
-                          className="px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
+                          className="px-2.5 py-1 text-xs font-medium text-emerald-400 hover:text-white bg-emerald-500/20 hover:bg-emerald-600 border border-emerald-500/50 rounded-lg transition-colors"
                         >
                           Edit
                         </button>
