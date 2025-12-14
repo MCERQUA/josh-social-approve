@@ -170,6 +170,20 @@ export default function ImageApprovalsPage() {
                 </svg>
                 <span>Text Approvals</span>
               </Link>
+              <Link
+                href="/social/CCA/schedule"
+                className={`px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl transition-all duration-200 flex items-center gap-2.5 shadow-lg hover:shadow-2xl font-semibold hover:scale-105 border border-emerald-500 relative ${stats.approved > 0 ? 'animate-pulse' : ''}`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>Schedule Posts</span>
+                {stats.approved > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-cyan-400 text-cyan-900 text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
+                    {stats.approved}
+                  </span>
+                )}
+              </Link>
               <button
                 onClick={fetchPosts}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-200 flex items-center gap-2.5 shadow-lg hover:shadow-2xl font-semibold hover:scale-105 border border-blue-500"
@@ -185,7 +199,11 @@ export default function ImageApprovalsPage() {
           {/* Workflow Indicator */}
           <div className="flex items-center gap-4 !mb-6 p-4 bg-slate-700/50 rounded-xl border border-slate-600">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm">1</div>
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
               <span className="text-green-400 font-medium">Text Approved</span>
             </div>
             <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,10 +216,15 @@ export default function ImageApprovalsPage() {
             <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
-            <div className="flex items-center gap-2">
+            <Link href="/social/CCA/schedule" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center text-slate-400 font-bold text-sm">3</div>
-              <span className="text-slate-400 font-medium">Ready to Publish</span>
-            </div>
+              <span className="text-slate-400 font-medium">Schedule & Publish</span>
+            </Link>
+            {stats.approved > 0 && (
+              <div className="ml-auto px-3 py-1 bg-emerald-600 text-white text-sm font-medium rounded-full">
+                {stats.approved} Ready
+              </div>
+            )}
           </div>
 
           {/* Stats */}

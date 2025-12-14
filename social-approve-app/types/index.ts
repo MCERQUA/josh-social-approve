@@ -20,6 +20,14 @@ export interface Approval {
   image_status: 'not_ready' | 'pending' | 'approved' | 'rejected';
   image_rejection_reason?: string;
   image_reviewed_at?: string;
+  // Scheduling (Stage 3)
+  scheduled_for?: string;
+  scheduled_status: 'not_scheduled' | 'scheduled' | 'publishing' | 'published' | 'failed';
+  oneup_post_id?: string;
+  oneup_category_id?: number;
+  target_platforms?: string[];
+  publish_error?: string;
+  published_at?: string;
 }
 
 export interface PostWithApproval extends Post {
@@ -39,4 +47,56 @@ export function getWorkflowStage(approval: Approval): WorkflowStage {
 
 export function isFullyApproved(approval: Approval): boolean {
   return approval.status === 'approved' && approval.image_status === 'approved';
+}
+
+export function isReadyToSchedule(approval: Approval): boolean {
+  return isFullyApproved(approval) && approval.scheduled_status === 'not_scheduled';
+}
+
+export function isScheduled(approval: Approval): boolean {
+  return approval.scheduled_status === 'scheduled';
+}
+
+export function isPublished(approval: Approval): boolean {
+  return approval.scheduled_status === 'published';
+}
+
+// OneUp types
+export interface OneUpCategory {
+  id: number;
+  category_name: string;
+  isPaused: number;
+  created_at: string;
+}
+
+export interface OneUpAccount {
+  category_id: number;
+  social_network_name: string;
+  social_network_id: string;
+  social_network_type: string;
+}
+
+export interface ScheduleRequest {
+  post_id: number;
+  scheduled_for: string; // ISO datetime string
+  category_id: number;
+  platforms: string[]; // social_network_ids or "ALL"
+}
+
+export interface ScheduledPost extends PostWithApproval {
+  scheduled_for: string;
+  target_platforms: string[];
+}
+
+// Calendar types
+export interface CalendarDay {
+  date: Date;
+  dayOfMonth: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  posts: ScheduledPost[];
+}
+
+export interface CalendarWeek {
+  days: CalendarDay[];
 }
