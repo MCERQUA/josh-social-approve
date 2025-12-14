@@ -10,6 +10,7 @@ interface CalendarMonthViewProps {
   onDateClick: (date: Date) => void;
   onInstanceClick: (instance: ScheduleInstance) => void;
   onApproveToOneUp?: (instance: ScheduleInstance) => Promise<void>;
+  onUnschedule?: (instance: ScheduleInstance) => Promise<void>;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onGoToMonth?: (date: Date) => void;
@@ -41,12 +42,14 @@ export default function CalendarMonthView({
   onDateClick,
   onInstanceClick,
   onApproveToOneUp,
+  onUnschedule,
   onPrevMonth,
   onNextMonth,
   onGoToMonth,
 }: CalendarMonthViewProps) {
   const [selectedInstance, setSelectedInstance] = useState<ScheduleInstance | null>(null);
   const [approving, setApproving] = useState(false);
+  const [unscheduling, setUnscheduling] = useState(false);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -167,6 +170,20 @@ export default function CalendarMonthView({
       console.error('Failed to approve:', error);
     } finally {
       setApproving(false);
+    }
+  };
+
+  // Handle unschedule
+  const handleUnschedule = async () => {
+    if (!selectedInstance || !onUnschedule) return;
+    setUnscheduling(true);
+    try {
+      await onUnschedule(selectedInstance);
+      setSelectedInstance(null);
+    } catch (error) {
+      console.error('Failed to unschedule:', error);
+    } finally {
+      setUnscheduling(false);
     }
   };
 
@@ -425,7 +442,7 @@ export default function CalendarMonthView({
                 {getPostStatus(selectedInstance) === 'pre-scheduled' && onApproveToOneUp && (
                   <button
                     onClick={handleApprove}
-                    disabled={approving}
+                    disabled={approving || unscheduling}
                     className="flex-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     {approving ? (
@@ -439,6 +456,27 @@ export default function CalendarMonthView({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                         APPROVE &amp; SEND TO ONEUP
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {getPostStatus(selectedInstance) === 'pre-scheduled' && onUnschedule && (
+                  <button
+                    onClick={handleUnschedule}
+                    disabled={approving || unscheduling}
+                    className="px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    {unscheduling ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Unschedule
                       </>
                     )}
                   </button>

@@ -201,6 +201,14 @@ export default function SchedulePage() {
     }
   };
 
+  // Wrapper for CalendarMonthView's onUnschedule prop
+  const handleUnscheduleFromCalendar = async (instance: ScheduleInstance) => {
+    await handleUnschedule(
+      instance.source === 'approval' ? instance.post_id : instance.id,
+      instance.source
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-800 flex items-center justify-center">
@@ -332,6 +340,7 @@ export default function SchedulePage() {
                 onDateClick={handleDateClick}
                 onInstanceClick={handleInstanceClick}
                 onApproveToOneUp={handleApproveToOneUp}
+                onUnschedule={handleUnscheduleFromCalendar}
                 onPrevMonth={handlePrevMonth}
                 onNextMonth={handleNextMonth}
                 onGoToMonth={handleGoToMonth}
