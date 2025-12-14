@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/api/(.*)', // Allow API routes without auth - they handle their own auth
 ]);
 
 // Reserved subdomains that are NOT tenant subdomains
