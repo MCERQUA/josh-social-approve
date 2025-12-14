@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const brandSlug = searchParams.get('brand');
+    const includePosted = searchParams.get('include_posted') === 'true';
 
     // Get brand ID if provided
     let brandId: number | null = null;
@@ -19,7 +20,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Filter out duplicates - one post goes to all platforms via OneUp
+    // Filter out duplicates and published posts (unless explicitly requested)
+    // Order by created_at DESC so newest posts appear first for client review
     const result = brandId
       ? await sql`
           SELECT
@@ -33,13 +35,17 @@ export async function GET(request: NextRequest) {
               'reviewed_at', a.reviewed_at,
               'image_status', COALESCE(a.image_status, 'not_ready'),
               'image_rejection_reason', a.image_rejection_reason,
-              'image_reviewed_at', a.image_reviewed_at
+              'image_reviewed_at', a.image_reviewed_at,
+              'scheduled_status', COALESCE(a.scheduled_status, 'not_scheduled'),
+              'scheduled_for', a.scheduled_for,
+              'published_at', a.published_at
             ) as approval
           FROM posts p
           LEFT JOIN approvals a ON p.id = a.post_id
           WHERE p.brand_id = ${brandId}
             AND (p.is_duplicate = false OR p.is_duplicate IS NULL)
-          ORDER BY p.post_index ASC
+            AND (${includePosted} = true OR COALESCE(a.scheduled_status, 'not_scheduled') != 'published')
+          ORDER BY p.created_at DESC
         `
       : await sql`
           SELECT
@@ -53,12 +59,16 @@ export async function GET(request: NextRequest) {
               'reviewed_at', a.reviewed_at,
               'image_status', COALESCE(a.image_status, 'not_ready'),
               'image_rejection_reason', a.image_rejection_reason,
-              'image_reviewed_at', a.image_reviewed_at
+              'image_reviewed_at', a.image_reviewed_at,
+              'scheduled_status', COALESCE(a.scheduled_status, 'not_scheduled'),
+              'scheduled_for', a.scheduled_for,
+              'published_at', a.published_at
             ) as approval
           FROM posts p
           LEFT JOIN approvals a ON p.id = a.post_id
-          WHERE p.is_duplicate = false OR p.is_duplicate IS NULL
-          ORDER BY p.post_index ASC
+          WHERE (p.is_duplicate = false OR p.is_duplicate IS NULL)
+            AND (${includePosted} = true OR COALESCE(a.scheduled_status, 'not_scheduled') != 'published')
+          ORDER BY p.created_at DESC
         `;
 
     return NextResponse.json(result as PostWithApproval[]);
