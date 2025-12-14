@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import PostCard from '@/components/PostCard';
+import TextOnlyPostCard from '@/components/TextOnlyPostCard';
 import RejectionModal from '@/components/RejectionModal';
 import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import { PostWithApproval } from '@/types';
@@ -273,7 +273,7 @@ export default function Home() {
             </div>
             <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-2xl !p-5 text-center shadow-lg border border-green-500 hover:shadow-xl hover:border-green-400 transition-all duration-200">
               <p className="text-4xl font-bold text-white !mb-2">{stats.approved}</p>
-              <p className="text-xs font-semibold text-green-100 uppercase tracking-wider">Approved</p>
+              <p className="text-xs font-semibold text-green-100 uppercase tracking-wider">Text Approved</p>
             </div>
             <div className="bg-gradient-to-br from-red-600 to-red-700 rounded-2xl !p-5 text-center shadow-lg border border-red-500 hover:shadow-xl hover:border-red-400 transition-all duration-200">
               <p className="text-4xl font-bold text-white !mb-2">{stats.rejected}</p>
@@ -309,7 +309,7 @@ export default function Home() {
         ) : (
           <div className="flex flex-col items-center gap-12">
             {filteredPosts.map((post) => (
-              <PostCard
+              <TextOnlyPostCard
                 key={post.id}
                 post={post}
                 onApprove={handleApprove}

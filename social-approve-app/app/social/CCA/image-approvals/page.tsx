@@ -101,6 +101,34 @@ export default function ImageApprovalsPage() {
     }
   };
 
+  const handleGenerateImage = async (postId: number, instructions?: string) => {
+    try {
+      const response = await fetch('/api/images/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          post_id: postId,
+          custom_prompt: instructions
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate image');
+      }
+
+      // Show success message
+      alert(`Image generated! ${data.message}`);
+
+      // Refresh posts to show new status
+      fetchPosts();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to generate image');
+      fetchPosts(); // Refresh to show failed status
+    }
+  };
+
   const filteredPosts = posts.filter(post => {
     if (filter === 'all') return true;
     return post.approval?.image_status === filter;
@@ -292,6 +320,8 @@ export default function ImageApprovalsPage() {
                 post={post}
                 onApprove={handleApproveImage}
                 onReject={handleRejectImage}
+                onGenerateImage={handleGenerateImage}
+                onRefresh={fetchPosts}
               />
             ))}
           </div>
