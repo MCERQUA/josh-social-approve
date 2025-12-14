@@ -41,6 +41,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Helper to check if an image URL is accessible
+async function isImageAccessible(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function approveInstance(instanceId: number, approvedBy: string, categoryId?: number) {
   // Get instance with post details
   const instances = await sql`
@@ -79,6 +89,24 @@ async function approveInstance(instanceId: number, approvedBy: string, categoryI
     );
   }
 
+  // Build image URL and validate it exists BEFORE marking as sending
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://josh.jamsocial.app';
+  const imageUrl = `${baseUrl}/images/${instance.post_image}`;
+
+  // Check if image is accessible
+  const imageExists = await isImageAccessible(imageUrl);
+  if (!imageExists) {
+    console.error(`[OneUp] Image not accessible: ${imageUrl}`);
+    return NextResponse.json(
+      {
+        error: `Image not found: ${instance.post_image}. The image file does not exist on the server. Please ensure the image has been uploaded and deployed.`,
+        image_url: imageUrl,
+        image_filename: instance.post_image
+      },
+      { status: 400 }
+    );
+  }
+
   // Mark as sending
   await sql`
     UPDATE schedule_instances
@@ -87,10 +115,6 @@ async function approveInstance(instanceId: number, approvedBy: string, categoryI
   `;
 
   try {
-    // Build image URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://josh.jamsocial.app';
-    const imageUrl = `${baseUrl}/images/${instance.post_image}`;
-
     // Send to OneUp
     const result = await scheduleImagePost({
       categoryId: oneupCategoryId,

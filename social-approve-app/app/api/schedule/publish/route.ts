@@ -59,6 +59,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Build the image URL first to validate
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://josh.jamsocial.app';
+    const imageUrl = `${baseUrl}/images/${post.image_filename}`;
+
+    // Check if image is accessible BEFORE marking as publishing
+    try {
+      const imageCheck = await fetch(imageUrl, { method: 'HEAD' });
+      if (!imageCheck.ok) {
+        return NextResponse.json(
+          {
+            error: `Image not found: ${post.image_filename}. The image file does not exist on the server.`,
+            image_url: imageUrl,
+            image_filename: post.image_filename
+          },
+          { status: 400 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        {
+          error: `Could not verify image: ${post.image_filename}. Please check the image URL.`,
+          image_url: imageUrl
+        },
+        { status: 400 }
+      );
+    }
+
     // Mark as publishing
     await sql`
       UPDATE approvals
@@ -67,10 +94,6 @@ export async function POST(request: NextRequest) {
     `;
 
     try {
-      // Build the image URL (assuming images are hosted on the app)
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.netlify.app';
-      const imageUrl = `${baseUrl}/images/${post.image_filename}`;
-
       // Always use ALL to post to all connected accounts in the category
       // OneUp requires either "ALL" or specific numeric social_network_ids
       const platforms = 'ALL';
