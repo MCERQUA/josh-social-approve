@@ -52,9 +52,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!post.oneup_category_id) {
+    // SAFETY: If category not set on approval, get it from the brand
+    // This prevents disasters if posts are scheduled without the category
+    let categoryId = post.oneup_category_id;
+    if (!categoryId) {
+      const brand = await sql`
+        SELECT b.oneup_category_id
+        FROM brands b
+        JOIN posts p ON p.brand_id = b.id
+        WHERE p.id = ${post_id}
+      `;
+      if (brand.length > 0 && brand[0].oneup_category_id) {
+        categoryId = brand[0].oneup_category_id;
+        // Also fix the approval record for next time
+        await sql`
+          UPDATE approvals SET oneup_category_id = ${categoryId} WHERE post_id = ${post_id}
+        `;
+        console.log(`[SAFETY] Auto-fixed category for post ${post_id} to ${categoryId}`);
+      }
+    }
+
+    if (!categoryId) {
       return NextResponse.json(
-        { error: 'No OneUp category configured for this post' },
+        { error: 'No OneUp category configured for this post or brand' },
         { status: 400 }
       );
     }
@@ -100,7 +120,7 @@ export async function POST(request: NextRequest) {
 
       // Schedule with OneUp
       const result = await scheduleImagePost({
-        categoryId: post.oneup_category_id,
+        categoryId: categoryId,
         socialNetworkId: platforms,
         scheduledDateTime: new Date(post.scheduled_for),
         imageUrl,
