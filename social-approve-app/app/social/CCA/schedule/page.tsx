@@ -290,21 +290,31 @@ export default function SchedulePage() {
                   {readyPosts.map((post) => (
                     <div
                       key={post.id}
-                      className="bg-slate-700/50 rounded-lg p-3 hover:bg-slate-700 transition-colors"
+                      className="bg-slate-700/50 rounded-lg p-2 hover:bg-slate-700 transition-colors"
                     >
-                      <h4 className="text-white text-sm font-medium mb-1 line-clamp-1">
-                        {post.title}
-                      </h4>
-                      <p className="text-slate-400 text-xs mb-2 line-clamp-2">
-                        {post.content.substring(0, 60)}...
-                      </p>
-                      <div className="flex items-center justify-end">
-                        <button
-                          onClick={() => handleSchedulePost(post)}
-                          className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors"
-                        >
-                          Schedule
-                        </button>
+                      <div className="flex gap-2">
+                        {/* Thumbnail */}
+                        {post.image_filename && (
+                          <div className="w-16 h-16 flex-shrink-0 rounded overflow-hidden bg-slate-600">
+                            <img
+                              src={`/images/${post.image_filename}`}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-white text-sm font-medium mb-1 line-clamp-2">
+                            {post.title}
+                          </h4>
+                          <button
+                            onClick={() => handleSchedulePost(post)}
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                          >
+                            Schedule
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
