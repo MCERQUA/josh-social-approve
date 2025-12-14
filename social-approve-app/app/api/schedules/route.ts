@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     if (includeInstances) {
       // Also fetch instances for each schedule
-      const scheduleIds = schedules.map((s: { id: number }) => s.id);
+      const scheduleIds = schedules.map((s: Record<string, unknown>) => s.id as number);
 
       if (scheduleIds.length > 0) {
         const instances = await sql`
@@ -59,18 +59,19 @@ export async function GET(request: NextRequest) {
         `;
 
         // Group instances by schedule_id
-        const instanceMap = new Map();
-        instances.forEach((i: { schedule_id: number }) => {
-          if (!instanceMap.has(i.schedule_id)) {
-            instanceMap.set(i.schedule_id, []);
+        const instanceMap = new Map<number, Record<string, unknown>[]>();
+        instances.forEach((i: Record<string, unknown>) => {
+          const scheduleId = i.schedule_id as number;
+          if (!instanceMap.has(scheduleId)) {
+            instanceMap.set(scheduleId, []);
           }
-          instanceMap.get(i.schedule_id).push(i);
+          instanceMap.get(scheduleId)!.push(i);
         });
 
         // Attach instances to schedules
-        const schedulesWithInstances = schedules.map((s: { id: number }) => ({
+        const schedulesWithInstances = schedules.map((s: Record<string, unknown>) => ({
           ...s,
-          instances: instanceMap.get(s.id) || [],
+          instances: instanceMap.get(s.id as number) || [],
         }));
 
         return NextResponse.json(schedulesWithInstances);

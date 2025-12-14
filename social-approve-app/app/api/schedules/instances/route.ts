@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
-// GET - Fetch all schedule instances for calendar view
+// Unified instance type for calendar
+interface CalendarInstance {
+  id: number;
+  schedule_id: number | null;
+  post_id: number;
+  scheduled_for: string;
+  status: 'pending' | 'approved' | 'sending' | 'sent' | 'failed' | 'skipped';
+  post_title: string;
+  post_content: string;
+  post_image: string;
+  repeat_type: 'none' | 'weekly' | 'biweekly' | 'monthly' | 'custom';
+  schedule_status: string;
+  is_modified: boolean;
+  source: 'schedule' | 'approval'; // Where this instance came from
+}
+
+// GET - Fetch all schedule instances for calendar view (unified: both repeat schedules AND one-time posts)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -26,16 +42,20 @@ export async function GET(request: NextRequest) {
       ? new Date(endDate)
       : new Date(start.getTime() + 6 * 30 * 24 * 60 * 60 * 1000);
 
-    // Get all instances with post and schedule info
-    const instances = await sql`
+    // Get instances from the NEW repeat scheduling system
+    const repeatInstances = await sql`
       SELECT
-        i.*,
+        i.id,
+        i.schedule_id,
+        i.post_id,
+        i.scheduled_for,
+        i.status,
+        i.is_modified,
         p.title as post_title,
         p.content as post_content,
         p.image_filename as post_image,
         s.repeat_type,
-        s.status as schedule_status,
-        s.created_by as schedule_created_by
+        s.status as schedule_status
       FROM schedule_instances i
       JOIN posts p ON p.id = i.post_id
       JOIN post_schedules s ON s.id = i.schedule_id
@@ -45,9 +65,79 @@ export async function GET(request: NextRequest) {
       ORDER BY i.scheduled_for ASC
     `;
 
+    // Get one-time scheduled posts from the OLD approval system
+    const oneTimePosts = await sql`
+      SELECT
+        a.id,
+        NULL as schedule_id,
+        p.id as post_id,
+        a.scheduled_for,
+        CASE
+          WHEN a.scheduled_status = 'published' THEN 'sent'
+          WHEN a.scheduled_status = 'failed' THEN 'failed'
+          WHEN a.scheduled_status = 'publishing' THEN 'sending'
+          ELSE 'pending'
+        END as status,
+        false as is_modified,
+        p.title as post_title,
+        p.content as post_content,
+        p.image_filename as post_image,
+        'none' as repeat_type,
+        a.scheduled_status as schedule_status
+      FROM approvals a
+      JOIN posts p ON p.id = a.post_id
+      WHERE p.brand_id = ${brandId}
+        AND a.scheduled_for IS NOT NULL
+        AND a.scheduled_status != 'not_scheduled'
+        AND a.scheduled_for >= ${start.toISOString()}
+        AND a.scheduled_for <= ${end.toISOString()}
+        AND NOT EXISTS (
+          SELECT 1 FROM post_schedules ps
+          WHERE ps.post_id = p.id AND ps.status NOT IN ('completed', 'paused')
+        )
+      ORDER BY a.scheduled_for ASC
+    `;
+
+    // Combine and normalize both sources
+    const allInstances: CalendarInstance[] = [
+      ...repeatInstances.map((i: Record<string, unknown>) => ({
+        id: i.id as number,
+        schedule_id: i.schedule_id as number | null,
+        post_id: i.post_id as number,
+        scheduled_for: i.scheduled_for as string,
+        status: i.status as CalendarInstance['status'],
+        post_title: i.post_title as string,
+        post_content: i.post_content as string,
+        post_image: i.post_image as string,
+        repeat_type: i.repeat_type as CalendarInstance['repeat_type'],
+        schedule_status: i.schedule_status as string,
+        is_modified: (i.is_modified as boolean) || false,
+        source: 'schedule' as const,
+      })),
+      ...oneTimePosts.map((i: Record<string, unknown>) => ({
+        id: i.id as number,
+        schedule_id: i.schedule_id as number | null,
+        post_id: i.post_id as number,
+        scheduled_for: i.scheduled_for as string,
+        status: i.status as CalendarInstance['status'],
+        post_title: i.post_title as string,
+        post_content: i.post_content as string,
+        post_image: i.post_image as string,
+        repeat_type: i.repeat_type as CalendarInstance['repeat_type'],
+        schedule_status: i.schedule_status as string,
+        is_modified: (i.is_modified as boolean) || false,
+        source: 'approval' as const,
+      })),
+    ];
+
+    // Sort combined list by scheduled_for
+    allInstances.sort(
+      (a, b) => new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime()
+    );
+
     // Group by date for calendar view
-    const byDate: Record<string, typeof instances> = {};
-    instances.forEach((instance: { scheduled_for: string }) => {
+    const byDate: Record<string, CalendarInstance[]> = {};
+    allInstances.forEach((instance) => {
       const dateKey = new Date(instance.scheduled_for).toISOString().split('T')[0];
       if (!byDate[dateKey]) {
         byDate[dateKey] = [];
@@ -56,9 +146,11 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      instances,
+      instances: allInstances,
       byDate,
-      total: instances.length,
+      total: allInstances.length,
+      repeatCount: repeatInstances.length,
+      oneTimeCount: oneTimePosts.length,
       dateRange: {
         start: start.toISOString(),
         end: end.toISOString(),

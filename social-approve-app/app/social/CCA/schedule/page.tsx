@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import CalendarMonthView from '@/components/CalendarMonthView';
 import TimelineListView from '@/components/TimelineListView';
 import ScheduleModal from '@/components/ScheduleModal';
-import { PostWithApproval } from '@/types';
+import { PostWithApproval, ScheduleInstance, ScheduleInstancesResponse } from '@/types';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -25,13 +25,13 @@ interface BrandConfig {
 
 export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
-  const [scheduledPosts, setScheduledPosts] = useState<PostWithApproval[]>([]);
+  const [instances, setInstances] = useState<ScheduleInstance[]>([]);
   const [readyPosts, setReadyPosts] = useState<PostWithApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedInstance, setSelectedInstance] = useState<ScheduleInstance | null>(null);
   const [selectedPost, setSelectedPost] = useState<PostWithApproval | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedDateForScheduling, setSelectedDateForScheduling] = useState<Date | null>(null);
   const [brand, setBrand] = useState<BrandConfig | null>(null);
 
   // Fetch brand config
@@ -46,17 +46,23 @@ export default function SchedulePage() {
     }
   }, []);
 
-  // Fetch scheduled posts for this brand
-  const fetchScheduledPosts = useCallback(async () => {
+  // Fetch schedule instances for calendar (unified: repeat schedules + one-time posts)
+  const fetchInstances = useCallback(async () => {
     try {
-      const response = await fetch(`/api/schedule?brand=${BRAND_SLUG}`);
-      if (!response.ok) throw new Error('Failed to fetch scheduled posts');
-      const data = await response.json();
-      setScheduledPosts(data);
+      // Get 3 months before and 6 months after current month
+      const start = new Date(currentDate.getFullYear(), currentDate.getMonth() - 3, 1);
+      const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 6, 0);
+
+      const response = await fetch(
+        `/api/schedules/instances?brand=${BRAND_SLUG}&start=${start.toISOString()}&end=${end.toISOString()}`
+      );
+      if (!response.ok) throw new Error('Failed to fetch instances');
+      const data: ScheduleInstancesResponse = await response.json();
+      setInstances(data.instances);
     } catch (error) {
-      console.error('Error fetching scheduled posts:', error);
+      console.error('Error fetching instances:', error);
     }
-  }, []);
+  }, [currentDate]);
 
   // Fetch posts ready to schedule for this brand
   const fetchReadyPosts = useCallback(async () => {
@@ -73,11 +79,11 @@ export default function SchedulePage() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchBrand(), fetchScheduledPosts(), fetchReadyPosts()]);
+      await Promise.all([fetchBrand(), fetchInstances(), fetchReadyPosts()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchBrand, fetchScheduledPosts, fetchReadyPosts]);
+  }, [fetchBrand, fetchInstances, fetchReadyPosts]);
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -87,14 +93,18 @@ export default function SchedulePage() {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const handleDateClick = (date: Date) => {
-    setSelectedDateForScheduling(date);
-    // Could open a day detail modal or initiate scheduling
+  const handleGoToMonth = (date: Date) => {
+    setCurrentDate(date);
   };
 
-  const handlePostClick = (post: PostWithApproval) => {
-    setSelectedPost(post);
-    // Show post details or edit scheduling
+  const handleDateClick = (date: Date) => {
+    // Could open a day detail modal or initiate scheduling for that date
+    console.log('Date clicked:', date);
+  };
+
+  const handleInstanceClick = (instance: ScheduleInstance) => {
+    setSelectedInstance(instance);
+    // TODO: Show instance detail modal for editing/skipping
   };
 
   const handleSchedulePost = (post: PostWithApproval) => {
@@ -124,23 +134,31 @@ export default function SchedulePage() {
     }
 
     // Refresh data
-    await Promise.all([fetchScheduledPosts(), fetchReadyPosts()]);
+    await Promise.all([fetchInstances(), fetchReadyPosts()]);
   };
 
-  const handleUnschedule = async (postId: number) => {
+  const handleUnschedule = async (instanceOrPostId: number, source?: 'schedule' | 'approval') => {
     if (!confirm('Are you sure you want to unschedule this post?')) return;
 
     try {
-      const response = await fetch(`/api/schedule?post_id=${postId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) throw new Error('Failed to unschedule post');
+      if (source === 'approval') {
+        // Old system - use the original unschedule endpoint
+        const response = await fetch(`/api/schedule?post_id=${instanceOrPostId}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to unschedule post');
+      } else {
+        // New system - skip the instance
+        const response = await fetch(`/api/schedules/instances?id=${instanceOrPostId}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to skip instance');
+      }
 
       // Refresh data
-      await Promise.all([fetchScheduledPosts(), fetchReadyPosts()]);
+      await Promise.all([fetchInstances(), fetchReadyPosts()]);
     } catch (error) {
-      console.error('Error unscheduling post:', error);
+      console.error('Error unscheduling:', error);
       alert('Failed to unschedule post');
     }
   };
@@ -271,16 +289,17 @@ export default function SchedulePage() {
             {viewMode === 'calendar' ? (
               <CalendarMonthView
                 currentDate={currentDate}
-                scheduledPosts={scheduledPosts}
+                instances={instances}
                 onDateClick={handleDateClick}
-                onPostClick={handlePostClick}
+                onInstanceClick={handleInstanceClick}
                 onPrevMonth={handlePrevMonth}
                 onNextMonth={handleNextMonth}
+                onGoToMonth={handleGoToMonth}
               />
             ) : (
               <TimelineListView
-                scheduledPosts={scheduledPosts}
-                onPostClick={handlePostClick}
+                instances={instances}
+                onInstanceClick={handleInstanceClick}
                 onUnschedule={handleUnschedule}
               />
             )}
@@ -300,6 +319,81 @@ export default function SchedulePage() {
         }}
         onSchedule={handleScheduleSubmit}
       />
+
+      {/* Instance Detail Modal (for editing scheduled posts) */}
+      {selectedInstance && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Scheduled Post</h2>
+              <button
+                onClick={() => setSelectedInstance(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-slate-400 text-xs">Title</p>
+                <p className="text-white font-medium">{selectedInstance.post_title}</p>
+              </div>
+
+              <div>
+                <p className="text-slate-400 text-xs">Scheduled For</p>
+                <p className="text-white">
+                  {new Date(selectedInstance.scheduled_for).toLocaleString()}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded text-xs ${
+                  selectedInstance.repeat_type !== 'none'
+                    ? 'bg-blue-500/20 text-blue-400'
+                    : 'bg-slate-500/20 text-slate-400'
+                }`}>
+                  {selectedInstance.repeat_type === 'none' ? 'One-time' : selectedInstance.repeat_type}
+                </span>
+                <span className={`px-2 py-0.5 rounded text-xs ${
+                  selectedInstance.status === 'sent'
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : selectedInstance.status === 'failed'
+                    ? 'bg-rose-500/20 text-rose-400'
+                    : 'bg-cyan-500/20 text-cyan-400'
+                }`}>
+                  {selectedInstance.status}
+                </span>
+              </div>
+            </div>
+
+            {selectedInstance.status === 'pending' && (
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => {
+                    handleUnschedule(
+                      selectedInstance.source === 'approval' ? selectedInstance.post_id : selectedInstance.id,
+                      selectedInstance.source
+                    );
+                    setSelectedInstance(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-rose-600/20 text-rose-400 border border-rose-600/30 rounded-lg hover:bg-rose-600/30 transition-colors"
+                >
+                  Unschedule
+                </button>
+                <button
+                  onClick={() => setSelectedInstance(null)}
+                  className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

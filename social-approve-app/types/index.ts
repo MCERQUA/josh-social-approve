@@ -100,3 +100,31 @@ export interface CalendarDay {
 export interface CalendarWeek {
   days: CalendarDay[];
 }
+
+// Schedule Instance (unified format for calendar from both repeat schedules and one-time posts)
+export interface ScheduleInstance {
+  id: number;
+  schedule_id: number | null;
+  post_id: number;
+  scheduled_for: string;
+  status: 'pending' | 'approved' | 'sending' | 'sent' | 'failed' | 'skipped';
+  post_title: string;
+  post_content: string;
+  post_image: string;
+  repeat_type: 'none' | 'weekly' | 'biweekly' | 'monthly' | 'custom';
+  schedule_status: string;
+  is_modified?: boolean;
+  source: 'schedule' | 'approval';
+}
+
+export interface ScheduleInstancesResponse {
+  instances: ScheduleInstance[];
+  byDate: Record<string, ScheduleInstance[]>;
+  total: number;
+  repeatCount: number;
+  oneTimeCount: number;
+  dateRange: {
+    start: string;
+    end: string;
+  };
+}

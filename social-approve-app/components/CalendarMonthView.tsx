@@ -2,21 +2,7 @@
 
 import { useMemo } from 'react';
 import Image from 'next/image';
-
-// Support both old PostWithApproval and new ScheduleInstance formats
-interface ScheduleInstance {
-  id: number;
-  schedule_id: number;
-  post_id: number;
-  scheduled_for: string;
-  status: 'pending' | 'approved' | 'sending' | 'sent' | 'failed' | 'skipped';
-  post_title: string;
-  post_content: string;
-  post_image: string;
-  repeat_type: 'none' | 'weekly' | 'biweekly' | 'monthly' | 'custom';
-  schedule_status: string;
-  is_modified?: boolean;
-}
+import { ScheduleInstance } from '@/types';
 
 interface CalendarMonthViewProps {
   currentDate: Date;
@@ -294,7 +280,7 @@ export default function CalendarMonthView({
                 <div className="space-y-1">
                   {day.instances.slice(0, 3).map((inst) => (
                     <div
-                      key={inst.id}
+                      key={`${inst.source}-${inst.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onInstanceClick(inst);
