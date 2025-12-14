@@ -172,9 +172,9 @@ export default function CalendarMonthView({
 
   return (
     <>
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden w-full">
         {/* Calendar Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-700/50">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border-b border-slate-700/50 gap-2">
           <div className="flex items-center gap-2">
             <button
               onClick={onPrevMonth}
@@ -221,18 +221,18 @@ export default function CalendarMonthView({
           </div>
 
           {/* Status Legend & Stats */}
-          <div className="flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-orange-500 rounded"></div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-orange-500 rounded"></div>
               <span className="text-slate-400">Pre-scheduled ({stats.preScheduled})</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-emerald-500 rounded"></div>
-              <span className="text-slate-400">Sent to OneUp ({stats.sent})</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-emerald-500 rounded"></div>
+              <span className="text-slate-400">Sent ({stats.sent})</span>
             </div>
             {stats.failed > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded"></div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-500 rounded"></div>
                 <span className="text-slate-400">Failed ({stats.failed})</span>
               </div>
             )}
@@ -244,9 +244,10 @@ export default function CalendarMonthView({
           {dayNames.map((day) => (
             <div
               key={day}
-              className="py-3 text-center text-sm font-medium text-slate-400 border-r border-slate-700/50 last:border-r-0"
+              className="py-2 sm:py-3 text-center text-xs sm:text-sm font-medium text-slate-400 border-r border-slate-700/50 last:border-r-0"
             >
-              {day}
+              <span className="hidden sm:inline">{day}</span>
+              <span className="sm:hidden">{day.charAt(0)}</span>
             </div>
           ))}
         </div>
@@ -259,7 +260,7 @@ export default function CalendarMonthView({
                 <div
                   key={dayIndex}
                   onClick={() => onDateClick(day.date)}
-                  className={`min-h-[100px] p-1.5 cursor-pointer transition-colors ${
+                  className={`min-h-[60px] sm:min-h-[100px] p-1 sm:p-1.5 cursor-pointer transition-colors ${
                     day.isCurrentMonth
                       ? day.isPast
                         ? 'bg-slate-900/30 hover:bg-slate-800/30'
