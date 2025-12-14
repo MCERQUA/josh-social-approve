@@ -6,6 +6,26 @@ export interface Post {
   content: string;
   image_filename: string;
   created_at: string;
+  // Image deployment tracking
+  image_deploy_status?: 'none' | 'generating' | 'pending_deploy' | 'deployed' | 'failed';
+  image_commit_sha?: string;
+  image_error?: string;
+  image_generated_at?: string;
+}
+
+// Image deployment status helpers
+export type ImageDeployStatus = Post['image_deploy_status'];
+
+export function isImageDeployed(post: Post): boolean {
+  return post.image_deploy_status === 'deployed';
+}
+
+export function isImagePendingDeploy(post: Post): boolean {
+  return post.image_deploy_status === 'pending_deploy';
+}
+
+export function isImageGenerating(post: Post): boolean {
+  return post.image_deploy_status === 'generating';
 }
 
 export interface Approval {
