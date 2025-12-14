@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useUser, useClerk } from '@clerk/nextjs';
+import { useTenant } from '@/lib/tenant-context';
 
 export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mainMenuOpen, setMainMenuOpen] = useState(false);
   const { user, isSignedIn } = useUser();
   const { signOut, openSignIn } = useClerk();
+  const { tenant, loading: tenantLoading } = useTenant();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-md">
@@ -20,9 +22,14 @@ export default function Header() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors">
-            Dashboard
-          </span>
+          <div className="flex flex-col">
+            <span className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors leading-tight">
+              JAM Social
+            </span>
+            {!tenantLoading && tenant && (
+              <span className="text-xs text-slate-400 leading-tight">{tenant.name}</span>
+            )}
+          </div>
         </Link>
 
         {/* User Menu + Hamburger */}

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import { ClerkProvider } from "@clerk/nextjs";
+import { TenantProvider } from "@/lib/tenant-context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -10,8 +11,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Social Media Approval Dashboard | Contractor's Choice Agency",
-  description: "Review and approve social media posts for Contractor's Choice Agency",
+  title: "JAM Social - Social Media Management",
+  description: "Manage and approve social media posts for your business",
 };
 
 export default function RootLayout({
@@ -23,10 +24,12 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body className={inter.className}>
-          <Header />
-          <div className="pt-16">
-            {children}
-          </div>
+          <TenantProvider>
+            <Header />
+            <div className="pt-16">
+              {children}
+            </div>
+          </TenantProvider>
         </body>
       </html>
     </ClerkProvider>
