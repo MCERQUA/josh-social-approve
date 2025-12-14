@@ -6,33 +6,68 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const statusFilter = searchParams.get('status');
+    const brandSlug = searchParams.get('brand');
 
-    // Use tagged template literal for Neon SQL
-    // Get all scheduled posts (not filtering by date range for simplicity)
-    const posts = await sql`
-      SELECT
-        p.*,
-        a.id as approval_id,
-        a.status as approval_status,
-        a.rejection_reason,
-        a.reviewed_by,
-        a.reviewed_at,
-        a.image_status,
-        a.image_rejection_reason,
-        a.image_reviewed_at,
-        a.scheduled_for,
-        a.scheduled_status,
-        a.oneup_post_id,
-        a.oneup_category_id,
-        a.target_platforms,
-        a.publish_error,
-        a.published_at
-      FROM posts p
-      LEFT JOIN approvals a ON p.id = a.post_id
-      WHERE a.scheduled_status IS NOT NULL
-        AND a.scheduled_status != 'not_scheduled'
-      ORDER BY a.scheduled_for ASC
-    `;
+    // Get brand ID if brand slug provided
+    let brandId: number | null = null;
+    if (brandSlug) {
+      const brands = await sql`SELECT id FROM brands WHERE slug = ${brandSlug}`;
+      if (brands.length > 0) {
+        brandId = brands[0].id as number;
+      }
+    }
+
+    // Get scheduled posts, filtered by brand if specified
+    const posts = brandId
+      ? await sql`
+          SELECT
+            p.*,
+            a.id as approval_id,
+            a.status as approval_status,
+            a.rejection_reason,
+            a.reviewed_by,
+            a.reviewed_at,
+            a.image_status,
+            a.image_rejection_reason,
+            a.image_reviewed_at,
+            a.scheduled_for,
+            a.scheduled_status,
+            a.oneup_post_id,
+            a.oneup_category_id,
+            a.target_platforms,
+            a.publish_error,
+            a.published_at
+          FROM posts p
+          LEFT JOIN approvals a ON p.id = a.post_id
+          WHERE p.brand_id = ${brandId}
+            AND a.scheduled_status IS NOT NULL
+            AND a.scheduled_status != 'not_scheduled'
+          ORDER BY a.scheduled_for ASC
+        `
+      : await sql`
+          SELECT
+            p.*,
+            a.id as approval_id,
+            a.status as approval_status,
+            a.rejection_reason,
+            a.reviewed_by,
+            a.reviewed_at,
+            a.image_status,
+            a.image_rejection_reason,
+            a.image_reviewed_at,
+            a.scheduled_for,
+            a.scheduled_status,
+            a.oneup_post_id,
+            a.oneup_category_id,
+            a.target_platforms,
+            a.publish_error,
+            a.published_at
+          FROM posts p
+          LEFT JOIN approvals a ON p.id = a.post_id
+          WHERE a.scheduled_status IS NOT NULL
+            AND a.scheduled_status != 'not_scheduled'
+          ORDER BY a.scheduled_for ASC
+        `;
 
     // Filter by status client-side if needed
     let filteredPosts = posts;

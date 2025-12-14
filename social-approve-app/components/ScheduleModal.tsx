@@ -7,6 +7,8 @@ import { PostWithApproval, OneUpCategory, OneUpAccount } from '@/types';
 interface ScheduleModalProps {
   isOpen: boolean;
   post: PostWithApproval | null;
+  brandCategoryId: number | null;
+  brandName: string;
   onClose: () => void;
   onSchedule: (postId: number, scheduledFor: string, categoryId: number, platforms: string[]) => Promise<void>;
 }
@@ -14,6 +16,8 @@ interface ScheduleModalProps {
 export default function ScheduleModal({
   isOpen,
   post,
+  brandCategoryId,
+  brandName,
   onClose,
   onSchedule,
 }: ScheduleModalProps) {
@@ -27,6 +31,13 @@ export default function ScheduleModal({
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [oneUpConfigured, setOneUpConfigured] = useState(true);
+
+  // Auto-use brand category when provided
+  useEffect(() => {
+    if (brandCategoryId) {
+      setSelectedCategory(brandCategoryId);
+    }
+  }, [brandCategoryId]);
 
   // Set default date to tomorrow
   useEffect(() => {
@@ -205,31 +216,50 @@ export default function ScheduleModal({
           {/* OneUp Integration */}
           {oneUpConfigured ? (
             <>
-              {/* Category Selection */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  OneUp Category (Optional)
-                </label>
-                {loadingCategories ? (
-                  <div className="flex items-center gap-2 text-slate-400 text-sm">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                    Loading categories...
+              {/* Brand Category Info (when pre-configured) */}
+              {brandCategoryId ? (
+                <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-blue-400 font-medium">{brandName}</h4>
+                      <p className="text-slate-400 text-sm">
+                        Will post to this brand&apos;s social media accounts
+                      </p>
+                    </div>
                   </div>
-                ) : (
-                  <select
-                    value={selectedCategory || ''}
-                    onChange={(e) => setSelectedCategory(e.target.value ? parseInt(e.target.value) : null)}
-                    className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select a category (for auto-publish)</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.category_name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+                </div>
+              ) : (
+                /* Category Selection (fallback when no brand category) */
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    OneUp Category (Optional)
+                  </label>
+                  {loadingCategories ? (
+                    <div className="flex items-center gap-2 text-slate-400 text-sm">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      Loading categories...
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedCategory || ''}
+                      onChange={(e) => setSelectedCategory(e.target.value ? parseInt(e.target.value) : null)}
+                      className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Select a category (for auto-publish)</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.category_name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
 
               {/* Platform Selection */}
               {selectedCategory && (

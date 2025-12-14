@@ -10,7 +10,19 @@ import { PostWithApproval } from '@/types';
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
+// Brand slug for this page - extracted from the URL path
+const BRAND_SLUG = 'cca';
+
 type ViewMode = 'calendar' | 'timeline';
+
+interface BrandConfig {
+  id: number;
+  slug: string;
+  name: string;
+  short_name: string;
+  oneup_category_id: number | null;
+  color: string;
+}
 
 export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
@@ -21,11 +33,24 @@ export default function SchedulePage() {
   const [selectedPost, setSelectedPost] = useState<PostWithApproval | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDateForScheduling, setSelectedDateForScheduling] = useState<Date | null>(null);
+  const [brand, setBrand] = useState<BrandConfig | null>(null);
 
-  // Fetch scheduled posts
+  // Fetch brand config
+  const fetchBrand = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/brands/${BRAND_SLUG}`);
+      if (!response.ok) throw new Error('Failed to fetch brand');
+      const data = await response.json();
+      setBrand(data);
+    } catch (error) {
+      console.error('Error fetching brand:', error);
+    }
+  }, []);
+
+  // Fetch scheduled posts for this brand
   const fetchScheduledPosts = useCallback(async () => {
     try {
-      const response = await fetch('/api/schedule');
+      const response = await fetch(`/api/schedule?brand=${BRAND_SLUG}`);
       if (!response.ok) throw new Error('Failed to fetch scheduled posts');
       const data = await response.json();
       setScheduledPosts(data);
@@ -34,10 +59,10 @@ export default function SchedulePage() {
     }
   }, []);
 
-  // Fetch posts ready to schedule
+  // Fetch posts ready to schedule for this brand
   const fetchReadyPosts = useCallback(async () => {
     try {
-      const response = await fetch('/api/schedule/ready');
+      const response = await fetch(`/api/schedule/ready?brand=${BRAND_SLUG}`);
       if (!response.ok) throw new Error('Failed to fetch ready posts');
       const data = await response.json();
       setReadyPosts(data);
@@ -49,11 +74,11 @@ export default function SchedulePage() {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchScheduledPosts(), fetchReadyPosts()]);
+      await Promise.all([fetchBrand(), fetchScheduledPosts(), fetchReadyPosts()]);
       setLoading(false);
     };
     loadData();
-  }, [fetchScheduledPosts, fetchReadyPosts]);
+  }, [fetchBrand, fetchScheduledPosts, fetchReadyPosts]);
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -330,6 +355,8 @@ export default function SchedulePage() {
       <ScheduleModal
         isOpen={showScheduleModal}
         post={selectedPost}
+        brandCategoryId={brand?.oneup_category_id ?? null}
+        brandName={brand?.name ?? 'Unknown Brand'}
         onClose={() => {
           setShowScheduleModal(false);
           setSelectedPost(null);
