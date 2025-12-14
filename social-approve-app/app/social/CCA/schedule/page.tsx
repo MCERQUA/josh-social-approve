@@ -5,7 +5,7 @@ import Link from 'next/link';
 import CalendarMonthView from '@/components/CalendarMonthView';
 import TimelineListView from '@/components/TimelineListView';
 import ScheduleModal from '@/components/ScheduleModal';
-import { PostWithApproval } from '@/types';
+import { PostWithApproval, OneUpAccount } from '@/types';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -34,6 +34,8 @@ export default function SchedulePage() {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDateForScheduling, setSelectedDateForScheduling] = useState<Date | null>(null);
   const [brand, setBrand] = useState<BrandConfig | null>(null);
+  const [connectedAccounts, setConnectedAccounts] = useState<OneUpAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
 
   // Fetch brand config
   const fetchBrand = useCallback(async () => {
@@ -70,6 +72,28 @@ export default function SchedulePage() {
       console.error('Error fetching ready posts:', error);
     }
   }, []);
+
+  // Fetch connected accounts when brand category is loaded
+  const fetchConnectedAccounts = useCallback(async (categoryId: number) => {
+    setLoadingAccounts(true);
+    try {
+      const response = await fetch(`/api/oneup/accounts?category_id=${categoryId}`);
+      if (!response.ok) throw new Error('Failed to fetch accounts');
+      const data = await response.json();
+      setConnectedAccounts(data.accounts || []);
+    } catch (error) {
+      console.error('Error fetching connected accounts:', error);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, []);
+
+  // Fetch accounts when brand loads with a category ID
+  useEffect(() => {
+    if (brand?.oneup_category_id) {
+      fetchConnectedAccounts(brand.oneup_category_id);
+    }
+  }, [brand?.oneup_category_id, fetchConnectedAccounts]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -222,6 +246,96 @@ export default function SchedulePage() {
               <span className="text-blue-400 font-medium">Schedule & Publish</span>
             </div>
           </div>
+
+          {/* Connected Social Accounts */}
+          {brand?.oneup_category_id && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-slate-700/50 to-slate-800/50 rounded-xl border border-slate-600">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold">{brand.name}</h3>
+                    <p className="text-slate-400 text-sm">OneUp Category ID: {brand.oneup_category_id}</p>
+                  </div>
+                </div>
+                <span className="px-3 py-1 bg-green-500/20 text-green-400 text-sm font-medium rounded-full flex items-center gap-1.5">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                  Connected
+                </span>
+              </div>
+
+              {/* Social Accounts List */}
+              <div className="mt-4">
+                <p className="text-slate-400 text-xs uppercase tracking-wider mb-2 font-medium">Publishing To:</p>
+                {loadingAccounts ? (
+                  <div className="flex items-center gap-2 text-slate-400 text-sm">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                    Loading connected accounts...
+                  </div>
+                ) : connectedAccounts.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {connectedAccounts.map((account) => (
+                      <div
+                        key={account.social_network_id}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${
+                          account.social_network_type === 'facebook_page'
+                            ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                            : account.social_network_type === 'instagram_business'
+                            ? 'bg-pink-500/10 border-pink-500/30 text-pink-300'
+                            : account.social_network_type === 'linkedin_page'
+                            ? 'bg-sky-500/10 border-sky-500/30 text-sky-300'
+                            : account.social_network_type === 'google_business'
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                            : account.social_network_type === 'twitter'
+                            ? 'bg-slate-500/10 border-slate-500/30 text-slate-300'
+                            : 'bg-slate-600/50 border-slate-500/30 text-slate-300'
+                        }`}
+                      >
+                        {/* Platform Icon */}
+                        {account.social_network_type === 'facebook_page' && (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                          </svg>
+                        )}
+                        {account.social_network_type === 'instagram_business' && (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                          </svg>
+                        )}
+                        {account.social_network_type === 'linkedin_page' && (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                          </svg>
+                        )}
+                        {account.social_network_type === 'google_business' && (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
+                          </svg>
+                        )}
+                        {account.social_network_type === 'twitter' && (
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                          </svg>
+                        )}
+                        {!['facebook_page', 'instagram_business', 'linkedin_page', 'google_business', 'twitter'].includes(account.social_network_type) && (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                        )}
+                        <span className="text-sm font-medium">{account.social_network_name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-slate-500 text-sm">No accounts connected to this category.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Stats */}
           <div className="grid grid-cols-4 gap-4 mb-6">
