@@ -91,6 +91,13 @@ export default function CalendarMonthView({
     return result;
   }, [calendarDays]);
 
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   // Calculate months for quick navigation (current + 6 months)
   const monthOptions = useMemo(() => {
     const options: { date: Date; label: string }[] = [];
@@ -104,13 +111,6 @@ export default function CalendarMonthView({
     }
     return options;
   }, []);
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   // Get status color for instance
   const getStatusColor = (status: string, repeatType: string) => {
