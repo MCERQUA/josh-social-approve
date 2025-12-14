@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { commitImage, isConfigured as isGitHubConfigured, getImageUrl } from '@/lib/github';
+import sharp from 'sharp';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60 seconds for image generation
+
+// Target: 1024x1024, JPEG at 85% quality = ~200-400KB
+const IMAGE_MAX_SIZE = 1024;
+const JPEG_QUALITY = 85;
+const MAX_FILE_SIZE_KB = 500;
 
 interface GenerateImageRequest {
   post_id: number;
   custom_prompt?: string;
 }
 
-// Generate a URL-safe filename from title
+// Generate a URL-safe filename from title (now .jpg for compressed output)
 function generateFilename(title: string, postId: number): string {
   const slug = title
     .toLowerCase()
@@ -19,7 +25,46 @@ function generateFilename(title: string, postId: number): string {
     .substring(0, 50);
 
   const timestamp = Date.now();
-  return `${slug}-${postId}-${timestamp}.png`;
+  return `${slug}-${postId}-${timestamp}.jpg`;
+}
+
+// Compress and optimize image for social media
+async function compressImage(base64Input: string): Promise<{ base64: string; sizeKB: number }> {
+  // Decode base64 to buffer
+  const inputBuffer = Buffer.from(base64Input, 'base64');
+
+  // Process with sharp: resize and convert to JPEG
+  let quality = JPEG_QUALITY;
+  let outputBuffer: Buffer;
+
+  // Start with target quality
+  outputBuffer = await sharp(inputBuffer)
+    .resize(IMAGE_MAX_SIZE, IMAGE_MAX_SIZE, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality, mozjpeg: true })
+    .toBuffer();
+
+  // If still too large, reduce quality
+  while (outputBuffer.length > MAX_FILE_SIZE_KB * 1024 && quality > 60) {
+    quality -= 5;
+    outputBuffer = await sharp(inputBuffer)
+      .resize(IMAGE_MAX_SIZE, IMAGE_MAX_SIZE, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer();
+  }
+
+  const sizeKB = Math.round(outputBuffer.length / 1024);
+  console.log(`[ImageGen] Compressed to ${sizeKB}KB at quality ${quality}`);
+
+  return {
+    base64: outputBuffer.toString('base64'),
+    sizeKB,
+  };
 }
 
 // Build image generation prompt from post content
@@ -100,9 +145,9 @@ export async function POST(request: NextRequest) {
       const imagePrompt = buildImagePrompt(post.title, post.content, custom_prompt);
 
       // Call Gemini Imagen API for image generation
-      // Using Imagen 3 Fast for quick generation
+      // Using Imagen 3 Pro at 1024x1024 (1K) resolution - better quality for social media
       const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-fast-generate-001:predict?key=${geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${geminiApiKey}`,
         {
           method: 'POST',
           headers: {
@@ -113,6 +158,10 @@ export async function POST(request: NextRequest) {
             parameters: {
               sampleCount: 1,
               aspectRatio: '1:1',
+              // Request 1024x1024 (1K) - sufficient for social media, costs 3x less than 4K
+              outputOptions: {
+                mimeType: 'image/jpeg',
+              },
               safetyFilterLevel: 'block_few',
               personGeneration: 'allow_adult',
             },
@@ -129,20 +178,24 @@ export async function POST(request: NextRequest) {
       const geminiData = await geminiResponse.json();
 
       // Extract base64 image from response
-      const imageBase64 = geminiData.predictions?.[0]?.bytesBase64Encoded;
-      if (!imageBase64) {
+      const rawImageBase64 = geminiData.predictions?.[0]?.bytesBase64Encoded;
+      if (!rawImageBase64) {
         console.error('[Imagen] No image in response:', JSON.stringify(geminiData));
         throw new Error('No image generated');
       }
 
-      // Generate filename
+      // Compress image to target size (1024x1024, JPEG, <500KB)
+      console.log(`[ImageGen] Raw image size: ${Math.round(rawImageBase64.length * 0.75 / 1024)}KB`);
+      const { base64: compressedBase64, sizeKB } = await compressImage(rawImageBase64);
+
+      // Generate filename (.jpg for compressed output)
       const filename = generateFilename(post.title, post_id);
 
-      // Commit to GitHub
+      // Commit compressed image to GitHub
       const commitResult = await commitImage(
-        imageBase64,
+        compressedBase64,
         filename,
-        `Add generated image for post: ${post.title}`
+        `Add generated image for post: ${post.title} (${sizeKB}KB)`
       );
 
       // Update post with new filename and status
@@ -160,9 +213,10 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'Image generated and committed to GitHub. Netlify will deploy in ~2-5 minutes.',
+        message: `Image generated (${sizeKB}KB) and committed to GitHub. Netlify will deploy in ~2-5 minutes.`,
         post_id,
         filename,
+        file_size_kb: sizeKB,
         image_url: imageUrl,
         commit_sha: commitResult.commitSha,
         status: 'pending_deploy',
