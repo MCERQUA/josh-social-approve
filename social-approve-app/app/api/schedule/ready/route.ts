@@ -17,11 +17,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get ready posts, deduped by title (DISTINCT ON returns first row per title)
-    // This ensures we only show one post per unique content, since FB/GBP versions are duplicates
+    // Get ready posts - filter out duplicates (one post → all platforms via OneUp)
     const posts = brandId
       ? await sql`
-          SELECT DISTINCT ON (p.title)
+          SELECT
             p.*,
             a.id as approval_id,
             a.status as approval_status,
@@ -41,13 +40,14 @@ export async function GET(request: NextRequest) {
           FROM posts p
           LEFT JOIN approvals a ON p.id = a.post_id
           WHERE p.brand_id = ${brandId}
+            AND (p.is_duplicate = false OR p.is_duplicate IS NULL)
             AND a.status = 'approved'
             AND a.image_status = 'approved'
             AND (a.scheduled_status IS NULL OR a.scheduled_status = 'not_scheduled')
-          ORDER BY p.title, p.created_at DESC
+          ORDER BY p.created_at DESC
         `
       : await sql`
-          SELECT DISTINCT ON (p.title)
+          SELECT
             p.*,
             a.id as approval_id,
             a.status as approval_status,
@@ -66,10 +66,11 @@ export async function GET(request: NextRequest) {
             a.published_at
           FROM posts p
           LEFT JOIN approvals a ON p.id = a.post_id
-          WHERE a.status = 'approved'
+          WHERE (p.is_duplicate = false OR p.is_duplicate IS NULL)
+            AND a.status = 'approved'
             AND a.image_status = 'approved'
             AND (a.scheduled_status IS NULL OR a.scheduled_status = 'not_scheduled')
-          ORDER BY p.title, p.created_at DESC
+          ORDER BY p.created_at DESC
         `;
 
     // Transform to include nested approval object

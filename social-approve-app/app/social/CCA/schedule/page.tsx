@@ -29,7 +29,6 @@ export default function SchedulePage() {
   const [readyPosts, setReadyPosts] = useState<PostWithApproval[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedInstance, setSelectedInstance] = useState<ScheduleInstance | null>(null);
   const [selectedPost, setSelectedPost] = useState<PostWithApproval | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [brand, setBrand] = useState<BrandConfig | null>(null);
@@ -103,8 +102,47 @@ export default function SchedulePage() {
   };
 
   const handleInstanceClick = (instance: ScheduleInstance) => {
-    setSelectedInstance(instance);
-    // TODO: Show instance detail modal for editing/skipping
+    // Instance click is now handled in CalendarMonthView modal
+    console.log('Instance clicked:', instance.post_title);
+  };
+
+  // Approve and send a pre-scheduled post to OneUp
+  const handleApproveToOneUp = async (instance: ScheduleInstance) => {
+    if (!brand?.oneup_category_id) {
+      alert('No OneUp category configured for this brand');
+      return;
+    }
+
+    // Confirm before sending
+    const confirmed = confirm(
+      `Are you sure you want to send this post to OneUp?\n\n` +
+      `"${instance.post_title}"\n\n` +
+      `This will post to:\n` +
+      `- ${brand.name} (Category #${brand.oneup_category_id})\n\n` +
+      `This action cannot be undone from this dashboard.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch('/api/schedule/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: instance.post_id }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to publish');
+      }
+
+      // Refresh data
+      await fetchInstances();
+      alert('Post sent to OneUp successfully!');
+    } catch (error) {
+      console.error('Error publishing to OneUp:', error);
+      alert(`Failed to send to OneUp: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   const handleSchedulePost = (post: PostWithApproval) => {
@@ -260,16 +298,7 @@ export default function SchedulePage() {
                       <p className="text-slate-400 text-xs mb-2 line-clamp-2">
                         {post.content.substring(0, 60)}...
                       </p>
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`px-2 py-0.5 rounded text-xs ${
-                            post.platform === 'facebook'
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : 'bg-amber-500/20 text-amber-400'
-                          }`}
-                        >
-                          {post.platform === 'facebook' ? 'FB' : 'GBP'}
-                        </span>
+                      <div className="flex items-center justify-end">
                         <button
                           onClick={() => handleSchedulePost(post)}
                           className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors"
@@ -292,6 +321,7 @@ export default function SchedulePage() {
                 instances={instances}
                 onDateClick={handleDateClick}
                 onInstanceClick={handleInstanceClick}
+                onApproveToOneUp={handleApproveToOneUp}
                 onPrevMonth={handlePrevMonth}
                 onNextMonth={handleNextMonth}
                 onGoToMonth={handleGoToMonth}
@@ -320,80 +350,6 @@ export default function SchedulePage() {
         onSchedule={handleScheduleSubmit}
       />
 
-      {/* Instance Detail Modal (for editing scheduled posts) */}
-      {selectedInstance && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-xl border border-slate-700 w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Scheduled Post</h2>
-              <button
-                onClick={() => setSelectedInstance(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <p className="text-slate-400 text-xs">Title</p>
-                <p className="text-white font-medium">{selectedInstance.post_title}</p>
-              </div>
-
-              <div>
-                <p className="text-slate-400 text-xs">Scheduled For</p>
-                <p className="text-white">
-                  {new Date(selectedInstance.scheduled_for).toLocaleString()}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded text-xs ${
-                  selectedInstance.repeat_type !== 'none'
-                    ? 'bg-blue-500/20 text-blue-400'
-                    : 'bg-slate-500/20 text-slate-400'
-                }`}>
-                  {selectedInstance.repeat_type === 'none' ? 'One-time' : selectedInstance.repeat_type}
-                </span>
-                <span className={`px-2 py-0.5 rounded text-xs ${
-                  selectedInstance.status === 'sent'
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : selectedInstance.status === 'failed'
-                    ? 'bg-rose-500/20 text-rose-400'
-                    : 'bg-cyan-500/20 text-cyan-400'
-                }`}>
-                  {selectedInstance.status}
-                </span>
-              </div>
-            </div>
-
-            {selectedInstance.status === 'pending' && (
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => {
-                    handleUnschedule(
-                      selectedInstance.source === 'approval' ? selectedInstance.post_id : selectedInstance.id,
-                      selectedInstance.source
-                    );
-                    setSelectedInstance(null);
-                  }}
-                  className="flex-1 px-4 py-2 bg-rose-600/20 text-rose-400 border border-rose-600/30 rounded-lg hover:bg-rose-600/30 transition-colors"
-                >
-                  Unschedule
-                </button>
-                <button
-                  onClick={() => setSelectedInstance(null)}
-                  className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

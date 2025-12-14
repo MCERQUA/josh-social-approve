@@ -6,17 +6,19 @@ export const dynamic = 'force-dynamic';
 interface CreatePostRequest {
   title: string;
   content: string;
-  platform: 'facebook' | 'google_business';
+  platform?: string; // 'social' - OneUp posts to all connected platforms
 }
 
 export async function POST(request: Request) {
   try {
     const body: CreatePostRequest = await request.json();
-    const { title, content, platform } = body;
+    const { title, content } = body;
+    // All posts are 'social' - OneUp handles multi-platform posting
+    const platform = 'social';
 
-    if (!title || !content || !platform) {
+    if (!title || !content) {
       return NextResponse.json(
-        { error: 'Title, content, and platform are required' },
+        { error: 'Title and content are required' },
         { status: 400 }
       );
     }

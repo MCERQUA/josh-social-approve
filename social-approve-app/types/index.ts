@@ -2,7 +2,7 @@ export interface Post {
   id: number;
   post_index: number;
   title: string;
-  platform: 'facebook' | 'google_business';
+  platform?: string; // 'social' - OneUp posts to all connected platforms automatically
   content: string;
   image_filename: string;
   created_at: string;

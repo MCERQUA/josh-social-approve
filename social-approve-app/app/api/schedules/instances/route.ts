@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     `;
 
     // Get one-time scheduled posts from the OLD approval system
+    // Filter out duplicates using is_duplicate column
     const oneTimePosts = await sql`
       SELECT
         a.id,
@@ -87,6 +88,7 @@ export async function GET(request: NextRequest) {
       FROM approvals a
       JOIN posts p ON p.id = a.post_id
       WHERE p.brand_id = ${brandId}
+        AND (p.is_duplicate = false OR p.is_duplicate IS NULL)
         AND a.scheduled_for IS NOT NULL
         AND a.scheduled_status != 'not_scheduled'
         AND a.scheduled_for >= ${start.toISOString()}

@@ -5,20 +5,20 @@ export const dynamic = 'force-dynamic';
 interface GeneratePostsRequest {
   topic: string;
   additionalContext?: string;
-  platform: 'facebook' | 'google_business';
 }
 
 interface GeneratedVariation {
   id: number;
   title: string;
   content: string;
-  platform: 'facebook' | 'google_business';
 }
 
 export async function POST(request: Request) {
   try {
     const body: GeneratePostsRequest = await request.json();
-    const { topic, additionalContext, platform } = body;
+    const { topic, additionalContext } = body;
+    // Always use Facebook-style content (engaging, with emojis)
+    // OneUp will post to all connected platforms automatically
 
     if (!topic) {
       return NextResponse.json(
@@ -35,31 +35,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const platformName = platform === 'facebook' ? 'Facebook' : 'Google Business Profile';
-    const platformGuidelines = platform === 'facebook'
-      ? `- Use emojis strategically (1-3 per post)
+    // Use engaging Facebook-style content that works across all platforms
+    const platformGuidelines = `- Use emojis strategically (1-3 per post)
 - Include a clear call to action with link to contractorschoiceagency.com
 - Keep under 250 words
 - Use hashtags (3-5 relevant ones)
 - Engaging, conversational tone
 - IMPORTANT: Use line breaks (\\n\\n) to separate paragraphs for readability
-- Structure: Hook/question -> Main content -> CTA with website -> Hashtags (each on separate lines)`
-      : `- Professional, informative tone
-- Include phone number: 844-967-5247
-- Keep concise (under 200 words)
-- Focus on local relevance
-- Include link to contractorschoiceagency.com
-- IMPORTANT: Use line breaks (\\n\\n) to separate paragraphs for readability
-- Structure: Opening statement -> Key info -> CTA with website and phone number (each on separate lines)`;
+- Structure: Hook/question -> Main content -> CTA with website -> Hashtags (each on separate lines)`;
 
     const prompt = `You are a social media content writer for Contractor's Choice Agency, a contractor insurance agency specializing in insurance for contractors (roofing, HVAC, spray foam, plumbing, electrical, etc.).
 
-Generate 3 DISTINCTLY DIFFERENT ${platformName} post variations about the following topic:
+Generate 3 DISTINCTLY DIFFERENT social media post variations about the following topic:
 
 Topic: ${topic}
 ${additionalContext ? `Additional Context: ${additionalContext}` : ''}
 
-Platform Guidelines for ${platformName}:
+Platform Guidelines:
 ${platformGuidelines}
 
 Important brand guidelines:
@@ -150,8 +142,7 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown or code blocks. Use this ex
       (v: { title: string; content: string }, index: number) => ({
         id: index + 1,
         title: v.title || `Variation ${index + 1}`,
-        content: v.content || '',
-        platform
+        content: v.content || ''
       })
     );
 

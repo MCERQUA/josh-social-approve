@@ -63,13 +63,23 @@ export async function listCategoryAccounts(categoryId: number): Promise<OneUpAcc
 }
 
 // Format date for OneUp API (YYYY-MM-DD HH:MM)
+// OneUp uses ACCOUNT TIMEZONE, not UTC (confirmed via testing 2024-12-14)
+// Send times in user's local timezone - OneUp interprets literally
 function formatDateForOneUp(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}`;
+  // Convert to Eastern Time (America/Toronto) - OneUp account timezone
+  const eastern = new Date(date.toLocaleString('en-US', { timeZone: 'America/Toronto' }));
+
+  const year = eastern.getFullYear();
+  const month = String(eastern.getMonth() + 1).padStart(2, '0');
+  const day = String(eastern.getDate()).padStart(2, '0');
+  const hours = String(eastern.getHours()).padStart(2, '0');
+  const minutes = String(eastern.getMinutes()).padStart(2, '0');
+  const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
+
+  // Log for debugging
+  console.log(`[OneUp] Scheduling in Eastern: ${formatted}`);
+
+  return formatted;
 }
 
 // Schedule a text post
@@ -98,7 +108,7 @@ export async function scheduleTextPost(params: {
 
   const url = `${ONEUP_BASE_URL}/scheduletextpost?${urlParams.toString()}`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, { method: 'POST' });
   const data: OneUpResponse<[]> = await response.json();
 
   return {
@@ -136,7 +146,7 @@ export async function scheduleImagePost(params: {
 
   const url = `${ONEUP_BASE_URL}/scheduleimagepost?${urlParams.toString()}`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, { method: 'POST' });
   const data: OneUpResponse<[]> = await response.json();
 
   return {

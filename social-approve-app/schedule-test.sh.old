@@ -1,0 +1,13 @@
+#!/bin/bash
+cd /home/josh/Josh-AI/websites/JOSH-SOCIAL-APPROVE/social-approve-app
+API_KEY=$(grep ONEUP_API_KEY .env.local | cut -d'=' -f2)
+
+echo "API Key length: ${#API_KEY}"
+
+# Use test category - try text post instead
+curl -G "https://www.oneupapp.io/api/scheduletextpost" \
+  --data-urlencode "apiKey=$API_KEY" \
+  --data-urlencode "category_id=166322" \
+  --data-urlencode "social_network_id=ALL" \
+  --data-urlencode "scheduled_date_time=2025-12-14 18:00" \
+  --data-urlencode "content=Test post from JAM Social" 2>&1
