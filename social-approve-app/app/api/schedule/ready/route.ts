@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
 // GET - Fetch posts ready to be scheduled (fully approved, not yet scheduled)
+// Deduped by title - returns only one post per unique title (for OneUp: one post → one category → all platforms)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -16,10 +17,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get ready posts, filtered by brand if specified
+    // Get ready posts, deduped by title (DISTINCT ON returns first row per title)
+    // This ensures we only show one post per unique content, since FB/GBP versions are duplicates
     const posts = brandId
       ? await sql`
-          SELECT
+          SELECT DISTINCT ON (p.title)
             p.*,
             a.id as approval_id,
             a.status as approval_status,
@@ -42,10 +44,10 @@ export async function GET(request: NextRequest) {
             AND a.status = 'approved'
             AND a.image_status = 'approved'
             AND (a.scheduled_status IS NULL OR a.scheduled_status = 'not_scheduled')
-          ORDER BY p.created_at DESC
+          ORDER BY p.title, p.created_at DESC
         `
       : await sql`
-          SELECT
+          SELECT DISTINCT ON (p.title)
             p.*,
             a.id as approval_id,
             a.status as approval_status,
@@ -67,7 +69,7 @@ export async function GET(request: NextRequest) {
           WHERE a.status = 'approved'
             AND a.image_status = 'approved'
             AND (a.scheduled_status IS NULL OR a.scheduled_status = 'not_scheduled')
-          ORDER BY p.created_at DESC
+          ORDER BY p.title, p.created_at DESC
         `;
 
     // Transform to include nested approval object

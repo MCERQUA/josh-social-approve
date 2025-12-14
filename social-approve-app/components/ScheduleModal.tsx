@@ -172,14 +172,8 @@ export default function ScheduleModal({
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-white mb-1 truncate">{post.title}</h3>
               <p className="text-slate-400 text-sm line-clamp-2">{post.content}</p>
-              <span
-                className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${
-                  post.platform === 'facebook'
-                    ? 'bg-blue-500/20 text-blue-400'
-                    : 'bg-amber-500/20 text-amber-400'
-                }`}
-              >
-                {post.platform === 'facebook' ? 'Facebook' : 'Google Business'}
+              <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-400">
+                All Platforms
               </span>
             </div>
           </div>

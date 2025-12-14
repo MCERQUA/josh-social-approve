@@ -150,7 +150,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Schedule the post
+    // Get the post title to find paired posts (FB/GBP versions with same content)
+    const postInfo = await sql`
+      SELECT title, brand_id FROM posts WHERE id = ${post_id}
+    `;
+    const postTitle = postInfo[0]?.title;
+    const brandId = postInfo[0]?.brand_id;
+
+    // Schedule this post AND any paired posts with the same title
+    // This ensures both FB and GBP versions are marked as scheduled together
     const result = await sql`
       UPDATE approvals
       SET
@@ -158,7 +166,11 @@ export async function POST(request: NextRequest) {
         scheduled_status = 'scheduled',
         oneup_category_id = ${category_id || null},
         target_platforms = ${JSON.stringify(platforms || [])}
-      WHERE post_id = ${post_id}
+      WHERE post_id IN (
+        SELECT id FROM posts
+        WHERE title = ${postTitle}
+        AND brand_id = ${brandId}
+      )
       RETURNING *
     `;
 
@@ -194,9 +206,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Check if post is scheduled
+    // Check if post is scheduled and get its title for paired posts
     const check = await sql`
-      SELECT scheduled_status FROM approvals WHERE post_id = ${postId}
+      SELECT a.scheduled_status, p.title, p.brand_id
+      FROM approvals a
+      JOIN posts p ON p.id = a.post_id
+      WHERE a.post_id = ${postId}
     `;
 
     if (check.length === 0 || check[0].scheduled_status !== 'scheduled') {
@@ -206,7 +221,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Unschedule
+    const postTitle = check[0].title;
+    const brandId = check[0].brand_id;
+
+    // Unschedule this post AND any paired posts with the same title
     await sql`
       UPDATE approvals
       SET
@@ -214,7 +232,11 @@ export async function DELETE(request: NextRequest) {
         scheduled_status = 'not_scheduled',
         oneup_category_id = NULL,
         target_platforms = '[]'
-      WHERE post_id = ${postId}
+      WHERE post_id IN (
+        SELECT id FROM posts
+        WHERE title = ${postTitle}
+        AND brand_id = ${brandId}
+      )
     `;
 
     // Log the unscheduling action
