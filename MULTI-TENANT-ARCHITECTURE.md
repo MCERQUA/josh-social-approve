@@ -213,6 +213,27 @@ node run-brands-migration.js
 |-----------|------|--------|
 | josh | Josh Cotner | CCA (Contractor's Choice Agency) |
 
+## OneUp Categories
+
+All social media accounts are organized into OneUp "categories". Each brand connects to one category.
+
+| ID | Category Name | Assigned To |
+|---|---|---|
+| 156826 | contractors Choice | CCA (Josh) |
+| 29153 | ICA - Insulation Contractors Of Arizona | Ready for Chris |
+| 158563 | Jam Social Media | - |
+| 162377 | Foamology insulation | - |
+| 162378 | Spray Foam Insurance | - |
+| 24859 | Foamstars | - |
+| 39549 | Sweatshop Swag | - |
+| 62122 | AllState Spray Foam | - |
+| 92851 | Cortez Industries | - |
+
+**To check connected accounts for a category:**
+```bash
+curl "https://www.oneupapp.io/api/listcategoryaccount?apiKey=YOUR_KEY&category_id=156826"
+```
+
 ## Future Enhancements
 
 1. **Admin Dashboard** - Manage tenants and brands
