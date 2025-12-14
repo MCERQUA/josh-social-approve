@@ -71,10 +71,9 @@ export async function POST(request: NextRequest) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://your-app.netlify.app';
       const imageUrl = `${baseUrl}/images/${post.image_filename}`;
 
-      // Get platforms (default to ALL if not specified)
-      const platforms = post.target_platforms?.length > 0
-        ? post.target_platforms
-        : 'ALL';
+      // Always use ALL to post to all connected accounts in the category
+      // OneUp requires either "ALL" or specific numeric social_network_ids
+      const platforms = 'ALL';
 
       // Schedule with OneUp
       const result = await scheduleImagePost({
