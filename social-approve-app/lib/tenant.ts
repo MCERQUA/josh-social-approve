@@ -44,10 +44,27 @@ export async function getTenant(): Promise<Tenant | null> {
         return userTenant[0] as Tenant;
       }
 
-      // No tenant for this user - create one
+      // No tenant for this user - check if their email matches an existing tenant
       const user = await currentUser();
-      const userName = user?.fullName || user?.firstName || 'New User';
       const userEmail = user?.primaryEmailAddress?.emailAddress || null;
+
+      if (userEmail) {
+        // Try to link user to existing tenant by email
+        const emailTenant = await sql`
+          SELECT * FROM tenants WHERE email = ${userEmail} AND is_active = true
+        `;
+
+        if (emailTenant.length > 0) {
+          // Link this Clerk user to the existing tenant
+          await sql`
+            UPDATE tenants SET clerk_user_id = ${userId} WHERE id = ${emailTenant[0].id}
+          `;
+          return { ...emailTenant[0], clerk_user_id: userId } as Tenant;
+        }
+      }
+
+      // Create a new tenant for this user
+      const userName = user?.fullName || user?.firstName || 'New User';
       // Create a unique subdomain from user ID
       const subdomain = userId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 20);
 
