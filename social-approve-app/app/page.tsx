@@ -33,8 +33,8 @@ export default function Home() {
   // Get display name - prefer firstName, fallback to username, then default
   const displayName = user?.firstName || user?.username || 'User';
 
-  // Only show websites for Josh's tenant (subdomain 'josh')
-  const showWebsites = tenant?.subdomain === 'josh';
+  // Show websites section for all tenants
+  const showWebsites = true;
 
   useEffect(() => {
     fetchStats();
