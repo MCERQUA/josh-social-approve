@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { getTenantId } from '@/lib/tenant';
 
-// GET - Fetch brand by slug
+// GET - Fetch brand by slug (only if it belongs to current tenant)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -9,6 +10,13 @@ export async function GET(
   try {
     const { slug } = await params;
 
+    // Get current tenant
+    const tenantId = await getTenantId();
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+    }
+
+    // Only return brand if it belongs to this tenant
     const brands = await sql`
       SELECT
         id,
@@ -20,7 +28,7 @@ export async function GET(
         logo_url,
         website_url
       FROM brands
-      WHERE slug = ${slug}
+      WHERE slug = ${slug} AND tenant_id = ${tenantId}
     `;
 
     if (brands.length === 0) {

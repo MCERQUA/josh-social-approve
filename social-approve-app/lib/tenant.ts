@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { sql } from '@/lib/db';
+import { auth, currentUser } from '@clerk/nextjs/server';
 
 export interface Tenant {
   id: number;
@@ -24,9 +25,46 @@ export async function getTenantSubdomain(): Promise<string> {
 
 /**
  * Get the full tenant record from the database.
- * Returns null if tenant doesn't exist.
+ * If user is logged in, try to find their tenant by clerk_user_id first.
+ * If no tenant exists for the user, create one.
+ * Returns null only if not logged in and subdomain tenant doesn't exist.
  */
 export async function getTenant(): Promise<Tenant | null> {
+  // First, try to get the current user's tenant by Clerk ID
+  try {
+    const { userId } = await auth();
+
+    if (userId) {
+      // Check if user already has a tenant
+      const userTenant = await sql`
+        SELECT * FROM tenants WHERE clerk_user_id = ${userId} AND is_active = true
+      `;
+
+      if (userTenant.length > 0) {
+        return userTenant[0] as Tenant;
+      }
+
+      // No tenant for this user - create one
+      const user = await currentUser();
+      const userName = user?.fullName || user?.firstName || 'New User';
+      const userEmail = user?.primaryEmailAddress?.emailAddress || null;
+      // Create a unique subdomain from user ID
+      const subdomain = userId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 20);
+
+      const newTenant = await sql`
+        INSERT INTO tenants (subdomain, name, email, clerk_user_id, primary_color, is_active)
+        VALUES (${subdomain}, ${userName}, ${userEmail}, ${userId}, '#3B82F6', true)
+        RETURNING *
+      `;
+
+      return newTenant[0] as Tenant;
+    }
+  } catch (e) {
+    // Auth might fail in some contexts - fall back to subdomain
+    console.log('Auth check failed, falling back to subdomain:', e);
+  }
+
+  // Fall back to subdomain-based lookup (for unauthenticated or API contexts)
   const subdomain = await getTenantSubdomain();
 
   const result = await sql`

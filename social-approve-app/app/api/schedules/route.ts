@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { getTenantId, verifyBrandAccess } from '@/lib/tenant';
 
 // Types for schedule creation
 interface CreateScheduleRequest {
@@ -27,12 +28,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'brand parameter required' }, { status: 400 });
     }
 
-    // Get brand ID
-    const brands = await sql`SELECT id FROM brands WHERE slug = ${brandSlug}`;
-    if (brands.length === 0) {
-      return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
+    // Verify brand belongs to current tenant
+    const brand = await verifyBrandAccess(brandSlug);
+    if (!brand) {
+      return NextResponse.json({ error: 'Brand not found or access denied' }, { status: 404 });
     }
-    const brandId = brands[0].id;
+    const brandId = brand.id;
 
     // Get schedules with post info
     const schedules = await sql`
