@@ -153,6 +153,29 @@ export default function Home() {
     }
   };
 
+  const handleGenerateImage = async (postId: number) => {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+
+    try {
+      const response = await fetch('/api/images/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate image');
+      }
+
+      alert('Image generation started! It will appear once deployed.');
+      fetchPosts(); // Refresh to see updated status
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to generate image');
+    }
+  };
+
   const filteredPosts = posts.filter(post => {
     if (filter === 'all') return true;
     return post.approval?.status === filter;
@@ -316,6 +339,7 @@ export default function Home() {
                 onReject={handleReject}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
+                onGenerateImage={handleGenerateImage}
               />
             ))}
           </div>
