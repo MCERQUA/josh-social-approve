@@ -16,6 +16,7 @@ interface Website {
   is_primary: boolean;
   is_active: boolean;
   created_at: string;
+  screenshot_url: string | null;
 }
 
 export default function WebsitesPage() {
@@ -273,46 +274,71 @@ export default function WebsitesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {websites.map((website) => (
               <div
                 key={website.id}
-                className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-teal-500/50 transition-colors"
+                className="bg-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-700/50 hover:border-teal-500/50 transition-all hover:shadow-lg hover:shadow-teal-500/10"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
-                      {getPlatformIcon(website.platform)}
-                    </div>
-                    <div>
-                      <h3 className="text-white font-medium">{website.name}</h3>
-                      <p className="text-slate-400 text-sm capitalize">{website.platform}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteWebsite(website.id)}
-                    className="text-slate-500 hover:text-rose-400 transition-colors"
-                    title="Remove website"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-                {website.description && (
-                  <p className="text-slate-400 text-sm mb-3">{website.description}</p>
-                )}
+                {/* Screenshot Preview */}
                 <a
                   href={website.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-teal-400 hover:text-teal-300 text-sm transition-colors"
+                  className="block relative aspect-video bg-slate-900/50 overflow-hidden group"
                 >
-                  <span className="truncate max-w-[200px]">{website.url.replace(/^https?:\/\//, '')}</span>
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
+                  {website.screenshot_url ? (
+                    <img
+                      src={website.screenshot_url}
+                      alt={`${website.name} preview`}
+                      className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <svg className="w-12 h-12 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                      </svg>
+                    </div>
+                  )}
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="bg-white/90 text-slate-900 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                        Visit Site
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
                 </a>
+
+                {/* Website Info */}
+                <div className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-slate-700/50 flex items-center justify-center flex-shrink-0">
+                        {getPlatformIcon(website.platform)}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-white font-medium truncate">{website.name}</h3>
+                        <p className="text-slate-400 text-xs truncate">{website.url.replace(/^https?:\/\//, '')}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteWebsite(website.id)}
+                      className="text-slate-500 hover:text-rose-400 transition-colors p-1"
+                      title="Remove website"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                  {website.description && (
+                    <p className="text-slate-400 text-sm line-clamp-2">{website.description}</p>
+                  )}
+                </div>
               </div>
             ))}
           </div>

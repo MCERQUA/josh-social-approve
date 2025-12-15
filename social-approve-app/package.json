@@ -24,6 +24,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
+    "puppeteer": "^24.33.0",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "typescript": "^5"
