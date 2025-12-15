@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
+import { useTenant } from '@/lib/tenant-context';
 
 // Force dynamic rendering to avoid build-time Clerk errors
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,7 @@ interface WebsiteStats {
 
 export default function Home() {
   const { user } = useUser();
+  const { tenant } = useTenant();
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, approved: 0, rejected: 0 });
   const [websiteStats, setWebsiteStats] = useState<WebsiteStats>({ totalLive: 0, dotCom: 0, netlify: 0, wordpress: 0 });
   const [loading, setLoading] = useState(true);
@@ -31,10 +33,15 @@ export default function Home() {
   // Get display name - prefer firstName, fallback to username, then default
   const displayName = user?.firstName || user?.username || 'User';
 
+  // Only show websites for Josh's tenant (subdomain 'josh')
+  const showWebsites = tenant?.subdomain === 'josh';
+
   useEffect(() => {
     fetchStats();
-    fetchWebsiteStats();
-  }, []);
+    if (showWebsites) {
+      fetchWebsiteStats();
+    }
+  }, [showWebsites]);
 
   const fetchStats = async () => {
     try {
@@ -107,28 +114,30 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Websites Stats */}
-        <section className="mb-10">
-          <h2 className="text-lg font-medium text-white mb-4">Websites</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-teal-500/50 transition-colors">
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">All Sites</p>
-              <p className="text-3xl font-semibold text-teal-400">{websiteLoading ? '—' : websiteStats.totalLive}</p>
+        {/* Websites Stats - Only show for tenants with websites */}
+        {showWebsites && (
+          <section className="mb-10">
+            <h2 className="text-lg font-medium text-white mb-4">Websites</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-teal-500/50 transition-colors">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">All Sites</p>
+                <p className="text-3xl font-semibold text-teal-400">{websiteLoading ? '—' : websiteStats.totalLive}</p>
+              </div>
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-blue-500/50 transition-colors">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">.com Domains</p>
+                <p className="text-3xl font-semibold text-blue-400">{websiteLoading ? '—' : websiteStats.dotCom}</p>
+              </div>
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-cyan-500/50 transition-colors">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Netlify Sites</p>
+                <p className="text-3xl font-semibold text-cyan-400">{websiteLoading ? '—' : websiteStats.netlify}</p>
+              </div>
+              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-orange-500/50 transition-colors">
+                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">WordPress Sites</p>
+                <p className="text-3xl font-semibold text-orange-400">{websiteLoading ? '—' : websiteStats.wordpress}</p>
+              </div>
             </div>
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-blue-500/50 transition-colors">
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">.com Domains</p>
-              <p className="text-3xl font-semibold text-blue-400">{websiteLoading ? '—' : websiteStats.dotCom}</p>
-            </div>
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-cyan-500/50 transition-colors">
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Netlify Sites</p>
-              <p className="text-3xl font-semibold text-cyan-400">{websiteLoading ? '—' : websiteStats.netlify}</p>
-            </div>
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-orange-500/50 transition-colors">
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">WordPress Sites</p>
-              <p className="text-3xl font-semibold text-orange-400">{websiteLoading ? '—' : websiteStats.wordpress}</p>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Quick Access */}
         <section>
@@ -156,27 +165,29 @@ export default function Home() {
               </div>
             </Link>
 
-            {/* Websites */}
-            <Link href="/websites" className="group block">
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-6 border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 transition-all h-full">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                      </svg>
+            {/* Websites - Only show for tenants with websites */}
+            {showWebsites && (
+              <Link href="/websites" className="group block">
+                <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-6 border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 transition-all h-full">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-medium text-white mb-0.5">Websites</h3>
+                        <p className="text-sm text-slate-400">Manage and monitor your websites</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-white mb-0.5">Websites</h3>
-                      <p className="text-sm text-slate-400">Manage and monitor your websites</p>
-                    </div>
+                    <svg className="w-5 h-5 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </div>
-                  <svg className="w-5 h-5 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
                 </div>
-              </div>
-            </Link>
+              </Link>
+            )}
           </div>
         </section>
       </main>
