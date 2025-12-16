@@ -293,7 +293,7 @@ export default function SchedulePage() {
                         {post.image_filename && (
                           <div className="w-16 h-16 flex-shrink-0 rounded overflow-hidden bg-slate-600">
                             <img
-                              src={`/${post.image_filename}`}
+                              src={`/images/${post.image_filename}`}
                               alt=""
                               className="w-full h-full object-cover"
                             />
