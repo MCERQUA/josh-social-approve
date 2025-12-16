@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
 
     // Log the repeat action
     await sql`
-      INSERT INTO scheduling_history (post_id, action, notes)
-      VALUES (${post_id}, 'repeated', ${'Post reset for re-scheduling. Previous OneUp ID: ' + (post.oneup_post_id || 'none')})
+      INSERT INTO scheduling_history (post_id, action)
+      VALUES (${post_id}, 'repeated')
     `;
 
     return NextResponse.json({
