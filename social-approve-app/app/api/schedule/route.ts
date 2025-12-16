@@ -165,7 +165,8 @@ export async function POST(request: NextRequest) {
         scheduled_for = ${scheduled_for},
         scheduled_status = 'scheduled',
         oneup_category_id = ${category_id || null},
-        target_platforms = ${JSON.stringify(platforms || [])}
+        target_platforms = ${JSON.stringify(platforms || [])},
+        ready_to_repost = false
       WHERE post_id IN (
         SELECT id FROM posts
         WHERE title = ${postTitle}

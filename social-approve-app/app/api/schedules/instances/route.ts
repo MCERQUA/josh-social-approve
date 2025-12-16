@@ -75,7 +75,6 @@ export async function GET(request: NextRequest) {
         a.scheduled_for,
         CASE
           WHEN a.scheduled_status = 'published' THEN 'sent'
-          WHEN a.scheduled_status = 'ready_again' THEN 'sent'
           WHEN a.scheduled_status = 'failed' THEN 'failed'
           WHEN a.scheduled_status = 'publishing' THEN 'sending'
           ELSE 'pending'

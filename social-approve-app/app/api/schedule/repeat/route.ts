@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
-// POST - Reset a published post so it can be scheduled again
-// This creates a new opportunity to schedule the same content
+// POST - Mark a post as ready to repost
+// This ONLY sets a flag - does NOT change any calendar/scheduling data
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -15,51 +15,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the current post status
-    const posts = await sql`
-      SELECT
-        p.*,
-        a.scheduled_status,
-        a.oneup_post_id,
-        b.oneup_category_id as brand_category_id
-      FROM posts p
-      LEFT JOIN approvals a ON p.id = a.post_id
-      LEFT JOIN brands b ON p.brand_id = b.id
-      WHERE p.id = ${post_id}
-    `;
-
-    if (posts.length === 0) {
-      return NextResponse.json(
-        { error: 'Post not found' },
-        { status: 404 }
-      );
-    }
-
-    const post = posts[0];
-
-    // Mark the post as ready to schedule again
-    // Keep ALL existing data (scheduled_for, published_at, etc.) so it stays on calendar
-    // Just change status to 'ready_again' so it also appears in Ready to Schedule
+    // Just set the flag - nothing else changes
     await sql`
       UPDATE approvals
-      SET scheduled_status = 'ready_again'
+      SET ready_to_repost = true
       WHERE post_id = ${post_id}
     `;
 
-    // Log the repeat action
-    await sql`
-      INSERT INTO scheduling_history (post_id, action)
-      VALUES (${post_id}, 'repeated')
-    `;
-
     return NextResponse.json({
-      message: 'Post reset successfully. It will now appear in Ready to Schedule.',
+      message: 'Post marked for reposting',
       post_id,
     });
   } catch (error) {
-    console.error('Error resetting post:', error);
+    console.error('Error marking post for repost:', error);
     return NextResponse.json(
-      { error: 'Failed to reset post' },
+      { error: 'Failed to mark post' },
       { status: 500 }
     );
   }
