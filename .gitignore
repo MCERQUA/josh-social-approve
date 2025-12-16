@@ -37,3 +37,6 @@ yarn-error.log*
 # Build artifacts
 dist/
 build/
+
+# Image backups (source PNGs moved out of deploy)
+image-backups/
