@@ -37,17 +37,12 @@ export async function POST(request: NextRequest) {
 
     const post = posts[0];
 
-    // Reset the approval record to allow re-scheduling
-    // Keep the approvals (text and image) but clear the scheduling
+    // Mark the post as ready to schedule again
+    // Keep ALL existing data (scheduled_for, published_at, etc.) so it stays on calendar
+    // Just change status to 'ready_again' so it also appears in Ready to Schedule
     await sql`
       UPDATE approvals
-      SET
-        scheduled_status = 'not_scheduled',
-        scheduled_for = NULL,
-        published_at = NULL,
-        oneup_post_id = NULL,
-        publish_error = NULL,
-        target_platforms = NULL
+      SET scheduled_status = 'ready_again'
       WHERE post_id = ${post_id}
     `;
 

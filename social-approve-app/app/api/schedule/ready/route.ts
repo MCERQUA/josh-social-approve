@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
             AND (p.is_duplicate = false OR p.is_duplicate IS NULL)
             AND a.status = 'approved'
             AND a.image_status = 'approved'
-            AND (a.scheduled_status IS NULL OR a.scheduled_status = 'not_scheduled')
+            AND (a.scheduled_status IS NULL OR a.scheduled_status = 'not_scheduled' OR a.scheduled_status = 'ready_again')
           ORDER BY p.created_at DESC
         `
       : await sql`
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
           WHERE (p.is_duplicate = false OR p.is_duplicate IS NULL)
             AND a.status = 'approved'
             AND a.image_status = 'approved'
-            AND (a.scheduled_status IS NULL OR a.scheduled_status = 'not_scheduled')
+            AND (a.scheduled_status IS NULL OR a.scheduled_status = 'not_scheduled' OR a.scheduled_status = 'ready_again')
           ORDER BY p.created_at DESC
         `;
 
