@@ -80,7 +80,7 @@ export default function SocialPage() {
                   <div className="flex items-center gap-4 mb-4">
                     <div className={`w-14 h-14 rounded-lg ${colors.bg} border ${colors.border} flex items-center justify-center flex-shrink-0`}>
                       <span className={`text-xl font-semibold ${colors.text}`}>
-                        {brand.short_name || brand.slug.toUpperCase().slice(0, 3)}
+                        {(brand.short_name || brand.slug.toUpperCase()).slice(0, 3)}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
