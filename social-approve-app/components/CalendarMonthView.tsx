@@ -11,6 +11,7 @@ interface CalendarMonthViewProps {
   onInstanceClick: (instance: ScheduleInstance) => void;
   onApproveToOneUp?: (instance: ScheduleInstance) => Promise<void>;
   onUnschedule?: (instance: ScheduleInstance) => Promise<void>;
+  onRepeatPost?: (instance: ScheduleInstance) => Promise<void>;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onGoToMonth?: (date: Date) => void;
@@ -43,6 +44,7 @@ export default function CalendarMonthView({
   onInstanceClick,
   onApproveToOneUp,
   onUnschedule,
+  onRepeatPost,
   onPrevMonth,
   onNextMonth,
   onGoToMonth,
@@ -50,6 +52,7 @@ export default function CalendarMonthView({
   const [selectedInstance, setSelectedInstance] = useState<ScheduleInstance | null>(null);
   const [approving, setApproving] = useState(false);
   const [unscheduling, setUnscheduling] = useState(false);
+  const [repeating, setRepeating] = useState(false);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -184,6 +187,20 @@ export default function CalendarMonthView({
       console.error('Failed to unschedule:', error);
     } finally {
       setUnscheduling(false);
+    }
+  };
+
+  // Handle repeat post (add back to ready to schedule)
+  const handleRepeat = async () => {
+    if (!selectedInstance || !onRepeatPost) return;
+    setRepeating(true);
+    try {
+      await onRepeatPost(selectedInstance);
+      setSelectedInstance(null);
+    } catch (error) {
+      console.error('Failed to repeat post:', error);
+    } finally {
+      setRepeating(false);
     }
   };
 
@@ -483,9 +500,32 @@ export default function CalendarMonthView({
                 )}
 
                 {getPostStatus(selectedInstance) === 'sent' && (
-                  <div className="flex-1 px-4 py-3 bg-slate-700 text-slate-400 font-medium rounded-lg text-center">
-                    Already sent - Edit in OneUp if needed
-                  </div>
+                  <>
+                    {onRepeatPost && (
+                      <button
+                        onClick={handleRepeat}
+                        disabled={repeating}
+                        className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        {repeating ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Adding...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            REPEAT POST
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <div className="px-4 py-3 bg-slate-700 text-slate-400 text-sm rounded-lg text-center">
+                      Already in OneUp
+                    </div>
+                  </>
                 )}
 
                 {getPostStatus(selectedInstance) === 'failed' && onApproveToOneUp && (

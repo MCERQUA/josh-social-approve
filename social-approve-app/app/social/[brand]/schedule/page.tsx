@@ -198,6 +198,35 @@ export default function SchedulePage() {
     );
   };
 
+  const handleRepeatPost = async (instance: ScheduleInstance) => {
+    const confirmed = confirm(
+      `Repeat this post?\n\n` +
+      `"${instance.post_title}"\n\n` +
+      `This will add it back to "Ready to Schedule" so you can post it again.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch('/api/schedule/repeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: instance.post_id }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to repeat post');
+      }
+
+      await Promise.all([fetchInstances(), fetchReadyPosts()]);
+      alert('Post added back to Ready to Schedule!');
+    } catch (error) {
+      console.error('Error repeating post:', error);
+      alert(`Failed to repeat post: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-800 flex items-center justify-center">
@@ -328,6 +357,7 @@ export default function SchedulePage() {
                 onInstanceClick={handleInstanceClick}
                 onApproveToOneUp={handleApproveToOneUp}
                 onUnschedule={handleUnscheduleFromCalendar}
+                onRepeatPost={handleRepeatPost}
                 onPrevMonth={handlePrevMonth}
                 onNextMonth={handleNextMonth}
                 onGoToMonth={handleGoToMonth}
