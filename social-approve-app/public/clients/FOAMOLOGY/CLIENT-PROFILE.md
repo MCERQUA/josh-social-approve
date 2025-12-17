@@ -42,6 +42,43 @@
 
 Anchorage, Palmer, Wasilla, Eagle River, and Kenai Peninsula (Alaska)
 
+## Website Structure & URLs
+
+Use these URLs when creating posts - link to the most relevant page for each topic.
+
+### Main Pages
+| Page | URL | Use For |
+|------|-----|---------|
+| Home | https://foamologyinsulation.com/ | General company mentions |
+| About | https://foamologyinsulation.com/about/ | Company story, credentials |
+| Services | https://foamologyinsulation.com/services/ | General service inquiries |
+| Solutions | https://foamologyinsulation.com/solutions/ | Problem-specific content |
+| Gallery | https://foamologyinsulation.com/gallery/ | Before/after showcases |
+| Blog | https://foamologyinsulation.com/blog/ | Educational content hub |
+
+### Service Pages
+| Service | URL | Use For Posts About |
+|---------|-----|---------------------|
+| Closed Cell Spray Foam | https://foamologyinsulation.com/services/closed-cell-spray-foam/ | High R-value, moisture barrier, structural strength |
+| Open Cell Spray Foam | https://foamologyinsulation.com/services/open-cell-spray-foam/ | Sound dampening, budget-friendly, interior walls |
+| Attic Insulation | https://foamologyinsulation.com/services/attic-insulation/ | Heat loss, energy bills, attic upgrades |
+| Crawl Space Insulation | https://foamologyinsulation.com/services/crawl-space-insulation/ | Moisture control, foundation, floor comfort |
+| Thermal Inspections | https://foamologyinsulation.com/services/thermal-inspections/ | Energy audits, heat loss detection, infrared |
+| Insulation Removal | https://foamologyinsulation.com/services/insulation-removal/ | Old insulation, upgrades, contamination |
+| Weatherization | https://foamologyinsulation.com/services/weatherization/ | Air sealing, drafts, energy efficiency |
+| Building Consultant | https://foamologyinsulation.com/services/building-consultant/ | New construction, renovations, advice |
+
+### Specialty Pages
+| Page | URL | Use For |
+|------|-----|---------|
+| Ice Dam Prevention | https://foamologyinsulation.com/ice-dam-prevention/ | Winter content, roof damage, Alaska winters |
+
+### Blog Posts
+| Title | URL | Topics |
+|-------|-----|--------|
+| Welcome to Anchorage Insulation | https://foamologyinsulation.com/blog/welcome-to-anchorage-insulation/ | Local focus, Anchorage market |
+| Welcome to Comfort Insulation | https://foamologyinsulation.com/blog/welcome-to-comfort-insulation/ | Comfort, home improvement |
+
 ## Brand Guidelines
 
 ### Colors

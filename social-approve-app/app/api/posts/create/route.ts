@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { verifyBrandAccess } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
 interface CreatePostRequest {
   title: string;
   content: string;
+  brand?: string; // Brand slug
   platform?: string; // 'social' - OneUp posts to all connected platforms
 }
 
 export async function POST(request: Request) {
   try {
     const body: CreatePostRequest = await request.json();
-    const { title, content } = body;
+    const { title, content, brand: brandSlug } = body;
     // All posts are 'social' - OneUp handles multi-platform posting
     const platform = 'social';
 
@@ -23,19 +25,38 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get the next post_index
+    if (!brandSlug) {
+      return NextResponse.json(
+        { error: 'Brand is required' },
+        { status: 400 }
+      );
+    }
+
+    // Verify brand access and get brand details
+    const brand = await verifyBrandAccess(brandSlug);
+    if (!brand) {
+      return NextResponse.json(
+        { error: 'Brand not found or access denied' },
+        { status: 403 }
+      );
+    }
+
+    const brandId = brand.id as number;
+    const brandShortName = (brand.short_name as string) || brandSlug.toUpperCase();
+
+    // Get the next post_index for this brand
     const maxIndexResult = await sql`
-      SELECT COALESCE(MAX(post_index), -1) + 1 as next_index FROM posts
+      SELECT COALESCE(MAX(post_index), -1) + 1 as next_index FROM posts WHERE brand_id = ${brandId}
     `;
     const nextIndex = maxIndexResult[0].next_index;
 
     // Create a placeholder image filename (will be generated later)
-    const imageFilename = `CCA-placeholder-${nextIndex}.png`;
+    const imageFilename = `${brandShortName}-placeholder-${nextIndex}.png`;
 
-    // Insert the new post
+    // Insert the new post with brand_id
     const postResult = await sql`
-      INSERT INTO posts (post_index, title, platform, content, image_filename)
-      VALUES (${nextIndex}, ${title}, ${platform}, ${content}, ${imageFilename})
+      INSERT INTO posts (brand_id, post_index, title, platform, content, image_filename)
+      VALUES (${brandId}, ${nextIndex}, ${title}, ${platform}, ${content}, ${imageFilename})
       RETURNING *
     `;
 

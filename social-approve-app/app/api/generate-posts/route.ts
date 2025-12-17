@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
+import { getBrandContext, formatBrandContextForPrompt } from '@/lib/brand-context';
+import { verifyBrandAccess } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
 interface GeneratePostsRequest {
   topic: string;
   additionalContext?: string;
+  brand?: string;
 }
 
 interface GeneratedVariation {
@@ -13,12 +16,21 @@ interface GeneratedVariation {
   content: string;
 }
 
+// Fallback context for CCA (default brand)
+const CCA_FALLBACK_CONTEXT = `Company: Contractor's Choice Agency
+Website: contractorschoiceagency.com
+Services: Contractor insurance (roofing, HVAC, spray foam, plumbing, electrical, etc.)
+Key Messages:
+- Focus on insurance requirements, compliance, and protection
+- Use specific examples and numbers when possible
+- Address pain points contractors face
+- Position CCA as the expert solution
+Recommended Hashtags: #ContractorInsurance #RoofingInsurance #HVACInsurance #ContractorProtection`;
+
 export async function POST(request: Request) {
   try {
     const body: GeneratePostsRequest = await request.json();
-    const { topic, additionalContext } = body;
-    // Always use Facebook-style content (engaging, with emojis)
-    // OneUp will post to all connected platforms automatically
+    const { topic, additionalContext, brand: brandSlug } = body;
 
     if (!topic) {
       return NextResponse.json(
@@ -35,43 +47,80 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use engaging Facebook-style content that works across all platforms
+    // Load brand context
+    let brandContext = '';
+    let companyName = "Contractor's Choice Agency";
+    let website = 'contractorschoiceagency.com';
+    let hashtags = '#ContractorInsurance #RoofingInsurance #HVACInsurance #ContractorProtection';
+
+    if (brandSlug) {
+      // Verify brand access
+      const brand = await verifyBrandAccess(brandSlug);
+      if (!brand) {
+        return NextResponse.json(
+          { error: 'Brand not found or access denied' },
+          { status: 403 }
+        );
+      }
+
+      // Load full brand context
+      const context = await getBrandContext(brandSlug);
+      if (context) {
+        brandContext = formatBrandContextForPrompt(context);
+        companyName = context.name;
+        website = context.companyInfo.website || context.website_url || website;
+        if (context.brandGuidelines.hashtags.length > 0) {
+          hashtags = context.brandGuidelines.hashtags.join(' ');
+        }
+      } else {
+        brandContext = CCA_FALLBACK_CONTEXT;
+      }
+    } else {
+      brandContext = CCA_FALLBACK_CONTEXT;
+    }
+
+    // Platform guidelines
     const platformGuidelines = `- Use emojis strategically (1-3 per post)
-- Include a clear call to action with link to contractorschoiceagency.com
+- Include a clear call to action with link to ${website}
 - Keep under 250 words
-- Use hashtags (3-5 relevant ones)
+- Use hashtags (3-5 relevant ones from: ${hashtags})
 - Engaging, conversational tone
 - IMPORTANT: Use line breaks (\\n\\n) to separate paragraphs for readability
 - Structure: Hook/question -> Main content -> CTA with website -> Hashtags (each on separate lines)`;
 
-    const prompt = `You are a social media content writer for Contractor's Choice Agency, a contractor insurance agency specializing in insurance for contractors (roofing, HVAC, spray foam, plumbing, electrical, etc.).
+    const prompt = `You are a social media content writer for ${companyName}.
 
+=== COMPANY CONTEXT ===
+${brandContext}
+
+=== YOUR TASK ===
 Generate 3 DISTINCTLY DIFFERENT social media post variations about the following topic:
 
 Topic: ${topic}
 ${additionalContext ? `Additional Context: ${additionalContext}` : ''}
 
-Platform Guidelines:
+=== PLATFORM GUIDELINES ===
 ${platformGuidelines}
 
-Important brand guidelines:
-- Focus on insurance requirements, compliance, and protection
-- Use specific examples and numbers when possible
-- Address pain points contractors face
-- Position CCA as the expert solution
-- Use contractorschoiceagency.com as the website link (not placeholder text)
-
+=== VARIATION REQUIREMENTS ===
 Generate exactly 3 variations with DIFFERENT approaches:
 1. One that's more educational/informative
-2. One that emphasizes urgency/consequences of non-compliance
+2. One that emphasizes urgency or the problem being solved
 3. One that's solution-focused/benefit-driven
 
-CRITICAL FORMATTING RULES:
+=== CRITICAL FORMATTING RULES ===
 - Each post MUST have multiple paragraphs separated by blank lines
 - Use \\n\\n in the JSON to create line breaks between sections
 - Never write posts as a single wall of text
+- Use the company's actual website URL, not placeholder text
+- Include relevant hashtags from the brand guidelines
 - Example structure for Facebook:
-  "Hook question or statement\\n\\nMain content paragraph explaining the topic.\\n\\nCall to action: [LINK]\\n\\n#Hashtag1 #Hashtag2"
+  "Hook question or statement\\n\\nMain content paragraph explaining the topic.\\n\\nCall to action: Visit ${website}\\n\\n#Hashtag1 #Hashtag2"
+
+=== IMPORTANT ===
+- Stay true to the company's voice, services, and service areas
+- Use specific details from the company context above
+- Reference actual services and unique selling points
 
 IMPORTANT: Respond ONLY with valid JSON, no markdown or code blocks. Use this exact format:
 {"variations":[{"title":"Short title","content":"Post content"},{"title":"Short title","content":"Post content"},{"title":"Short title","content":"Post content"}]}`;
