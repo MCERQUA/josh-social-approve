@@ -124,7 +124,8 @@ export async function commitImage(
   commitMessage?: string
 ): Promise<{ path: string; commitSha: string; success: boolean }> {
   try {
-    const filePath = `public/images/${filename}`;
+    // Note: The Next.js app is in social-approve-app/ subdirectory
+    const filePath = `social-approve-app/public/images/${filename}`;
     const message = commitMessage || `Add generated image: ${filename}`;
 
     // Step 1: Get the latest commit SHA
