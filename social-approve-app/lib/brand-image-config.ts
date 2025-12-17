@@ -63,28 +63,32 @@ function buildImagePromptTemplate(brandName: string, config: DbImageConfig): str
   const industry = config.industry || DEFAULTS.industry;
   const styleDescription = config.styleDescription || DEFAULTS.styleDescription;
 
-  return `Create a professional social media image for ${brandName}, a ${industry} company.
+  return `Create a stunning, high-quality social media image for ${brandName}, a ${industry} company.
 
-STYLE REQUIREMENTS:
+BRAND STYLE:
 ${styleDescription}
 
-COLOR PALETTE:
-- Primary accent color: ${primaryColor}
-- Secondary color: ${secondaryColor}
-- Background: ${backgroundColor}
-${config.tagline ? `\nCompany tagline for inspiration: "${config.tagline}"` : ''}
+COLOR SCHEME (use these colors prominently):
+- Primary/Accent: ${primaryColor} (use for highlights, glows, key elements)
+- Secondary: ${secondaryColor}
+- Background base: ${backgroundColor}
+${config.tagline ? `\nBrand message: "${config.tagline}"` : ''}
 
-DESIGN RULES:
-- Create a visually striking 1:1 square image
-- Use the specified color palette prominently
-- Modern, professional aesthetic
-- DO NOT include any text, words, or letters
-- DO NOT include logos or watermarks
-- Leave clean space in upper-left corner for logo overlay
-- Focus on abstract professional graphics, patterns, or industry-relevant imagery
-- High contrast and visually impactful
+IMAGE REQUIREMENTS:
+- Photorealistic quality with professional lighting
+- Dynamic composition with depth and visual interest
+- Feature relevant industry imagery: construction sites, contractors at work, safety equipment, tools, blueprints, hard hats, or professional business settings
+- Rich textures and details
+- Cinematic lighting with the accent color (${primaryColor}) as highlights or rim lighting
+- Professional stock photo quality
+- Clean area in upper-left corner (for logo overlay later)
 
-The image should look like a premium branded social media template background.`;
+DO NOT include:
+- Any text, words, letters, or numbers
+- Logos or watermarks
+- Faces (show workers from behind or silhouettes)
+
+Create an image that would make someone stop scrolling - visually striking, professional, and memorable.`;
 }
 
 /**
@@ -168,10 +172,15 @@ BRAND REQUIREMENTS (must follow):
   // Build prompt from template + post context
   return `${config.imagePromptTemplate}
 
-POST CONTEXT:
-Topic: ${postTitle}
-${postContent.substring(0, 200)}...
+SPECIFIC TOPIC FOR THIS IMAGE:
+"${postTitle}"
 
-Create an image that visually represents this topic while maintaining the brand style.
-The image should be abstract/professional - not a literal representation.`;
+${postContent.substring(0, 300)}
+
+Think about what visual elements would best represent this topic. Consider:
+- What objects, scenes, or scenarios relate to this topic?
+- How can the brand colors (${config.primaryColor}) be incorporated naturally?
+- What composition would be most impactful?
+
+Generate a compelling, scroll-stopping image that captures the essence of this topic.`;
 }

@@ -278,6 +278,8 @@ export async function POST(request: NextRequest) {
               }
             ],
             generationConfig: {
+              // Required for image generation
+              responseModalities: ['TEXT', 'IMAGE'],
               // Gemini 3 uses reasoning - 'low' is faster, 'high' for better quality
               thinkingConfig: {
                 thinkingLevel: 'low'
