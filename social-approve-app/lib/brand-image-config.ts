@@ -42,6 +42,44 @@ interface BrandColors {
   background: string;
 }
 
+// Color name to hex mapping for common colors
+const COLOR_NAME_MAP: Record<string, string> = {
+  'slate': '#64748B',
+  'gray': '#6B7280',
+  'dark gray': '#374151',
+  'dark grey': '#374151',
+  'black': '#000000',
+  'white': '#FFFFFF',
+  'orange': '#F97316',
+  'blue': '#3B82F6',
+  'cyan': '#00CED1',
+  'teal': '#14B8A6',
+  'green': '#22C55E',
+  'red': '#EF4444',
+  'yellow': '#EAB308',
+};
+
+/**
+ * Try to extract a hex color from text, including color name lookup
+ */
+function extractColor(colorText: string): string | null {
+  // First try to find a hex color
+  const hexMatch = colorText.match(/#[A-Fa-f0-9]{6}/);
+  if (hexMatch) {
+    return hexMatch[0];
+  }
+
+  // Try color name mapping
+  const lowerText = colorText.toLowerCase();
+  for (const [name, hex] of Object.entries(COLOR_NAME_MAP)) {
+    if (lowerText.includes(name)) {
+      return hex;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Parse colors from CLIENT-PROFILE.md content
  */
@@ -53,19 +91,22 @@ function parseColorsFromProfile(profile: string): BrandColors {
   };
 
   // Look for color definitions in various formats
-  const colorPatterns = [
+  // Format 1: - **Primary:** Orange (#F97316)
+  // Format 2: | Primary | #F97316 |
+  // Format 3: Cyan/Teal | #00CED1
+  const primaryPatterns = [
+    /[-*]\s*\*\*Primary[:\*]*\*\*\s*([^\n]+)/i,
     /\*\*Primary[:\*]*\s*([^|*\n]+)/i,
     /Primary\s*\|\s*([^\|]+)/i,
-    /Cyan\/Teal\s*\|\s*(#[A-Fa-f0-9]{6})/i,
+    /Cyan\/Teal\s*\|\s*([^\|]+)/i,
   ];
 
-  for (const pattern of colorPatterns) {
+  for (const pattern of primaryPatterns) {
     const match = profile.match(pattern);
     if (match) {
-      const colorText = match[1].trim();
-      const hexMatch = colorText.match(/#[A-Fa-f0-9]{6}/);
-      if (hexMatch) {
-        colors.primary = hexMatch[0];
+      const extracted = extractColor(match[1]);
+      if (extracted) {
+        colors.primary = extracted;
         break;
       }
     }
@@ -73,29 +114,37 @@ function parseColorsFromProfile(profile: string): BrandColors {
 
   // Secondary color
   const secondaryPatterns = [
+    /[-*]\s*\*\*Secondary[:\*]*\*\*\s*([^\n]+)/i,
     /\*\*Secondary[:\*]*\s*([^|*\n]+)/i,
     /Secondary\s*\|\s*([^\|]+)/i,
-    /Black\s*\|\s*(#[A-Fa-f0-9]{6})/i,
+    /Black\s*\|\s*([^\|]+)/i,
   ];
 
   for (const pattern of secondaryPatterns) {
     const match = profile.match(pattern);
     if (match) {
-      const colorText = match[1].trim();
-      const hexMatch = colorText.match(/#[A-Fa-f0-9]{6}/);
-      if (hexMatch) {
-        colors.secondary = hexMatch[0];
+      const extracted = extractColor(match[1]);
+      if (extracted) {
+        colors.secondary = extracted;
         break;
       }
     }
   }
 
   // Background color (often black for social media templates)
-  const bgMatch = profile.match(/Background\s*\|\s*([^\|]+)/i);
-  if (bgMatch) {
-    const hexMatch = bgMatch[1].match(/#[A-Fa-f0-9]{6}/);
-    if (hexMatch) {
-      colors.background = hexMatch[0];
+  const bgPatterns = [
+    /[-*]\s*\*\*Background[:\*]*\*\*\s*([^\n]+)/i,
+    /Background\s*\|\s*([^\|]+)/i,
+  ];
+
+  for (const pattern of bgPatterns) {
+    const match = profile.match(pattern);
+    if (match) {
+      const extracted = extractColor(match[1]);
+      if (extracted) {
+        colors.background = extracted;
+        break;
+      }
     }
   }
 
