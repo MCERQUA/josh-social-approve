@@ -260,40 +260,43 @@ export async function POST(request: NextRequest) {
 
       console.log(`[ImageGen] Generating image for post ${post_id}: "${post.title}"`);
 
-      // Call Gemini Imagen API for image generation
-      // Using Imagen 4.0 Fast at 1024x1024 (1K) resolution
+      // Call Gemini 3 Pro Image API for image generation
+      // Using gemini-3-pro-image-preview at 1024x1024 (1K) resolution
       const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiApiKey}`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            instances: [{ prompt: imagePrompt }],
-            parameters: {
-              sampleCount: 1,
-              aspectRatio: '1:1',
-              outputOptions: {
-                mimeType: 'image/jpeg',
-              },
-              safetyFilterLevel: 'block_few',
-              personGeneration: 'allow_adult',
-            },
+            contents: [
+              {
+                parts: [
+                  { text: imagePrompt }
+                ]
+              }
+            ],
+            generationConfig: {
+              responseModalities: ['IMAGE', 'TEXT'],
+              imageDimension: '1024x1024'
+            }
           }),
         }
       );
 
       if (!geminiResponse.ok) {
         const errorText = await geminiResponse.text();
-        console.error('[Imagen] API error:', errorText);
+        console.error('[Gemini] API error:', errorText);
         throw new Error(`Image generation failed: ${geminiResponse.status}`);
       }
 
       const geminiData = await geminiResponse.json();
 
-      // Extract base64 image from response
-      const rawImageBase64 = geminiData.predictions?.[0]?.bytesBase64Encoded;
+      // Extract base64 image from Gemini response format
+      const parts = geminiData.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find((p: { inlineData?: { data: string } }) => p.inlineData?.data);
+      const rawImageBase64 = imagePart?.inlineData?.data;
       if (!rawImageBase64) {
         console.error('[Imagen] No image in response:', JSON.stringify(geminiData));
         throw new Error('No image generated');
