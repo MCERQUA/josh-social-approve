@@ -14,16 +14,9 @@
   # - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: intentionally public (NEXT_PUBLIC_ prefix)
   SECRETS_SCAN_OMIT_KEYS = "CLERK_SECRET_KEY,DATABASE_URL,NETLIFY_DATABASE_URL,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
 
-# Increase function timeout for AI image generation
-# Gemini 3 Pro Image with thinking mode needs more time
+# Function configuration for AI image generation
+# Gemini 3 Pro Image with thinking mode needs extended timeout
 [functions]
-  # Default timeout for all functions (in seconds)
-  # Netlify Pro allows up to 26s, Enterprise up to 60s
-  # Free tier is limited to 10s
   external_node_modules = ["sharp"]
-
-# Specific timeout for image generation API routes
-[[functions]]
-  path = "/api/images/*"
-  # Request up to 60 seconds (requires Pro+ plan)
-  timeout = 60
+  # Note: For extended timeouts (>10s), upgrade to Netlify Pro
+  # and set AWS_LAMBDA_JS_RUNTIME in Netlify UI environment variables
