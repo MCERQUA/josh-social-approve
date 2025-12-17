@@ -29,73 +29,49 @@ export interface BrandImageConfig {
   website?: string;
 }
 
-// Hardcoded brand configurations for reliable serverless execution
-const BRAND_CONFIGS: Record<string, Omit<BrandImageConfig, 'brandId' | 'brandSlug' | 'brandName' | 'shortName'>> = {
-  'ICA': {
-    primaryColor: '#00CED1', // Cyan/Teal
-    secondaryColor: '#000000', // Black
-    backgroundColor: '#000000',
-    logoPath: '/clients/ICA/Company-Images/Insulation_Contractors_Logo_V3.png',
-    logoUrl: '/clients/ICA/Company-Images/Insulation_Contractors_Logo_V3.png',
-    logoPosition: 'top-left',
-    industry: 'insulation contractor services',
-    tagline: "Arizona's Extreme Heat Specialists",
-    styleDescription: `Professional template design with black background and flowing cyan (#00CED1) wave graphics.
-Modern and sleek with high contrast. Premium marketing template style with clean lines and professional contractor branding.
-The cyan color should be prominent as accent waves or flowing graphic elements.`,
-    imagePromptTemplate: '',
-    phone: '623-241-1939',
-    website: 'insulationcontractorsofarizona.com',
-  },
-  'CCA': {
-    primaryColor: '#F97316', // Orange
-    secondaryColor: '#64748B', // Slate
-    backgroundColor: '#1F2937', // Dark slate
-    logoPath: '/clients/CCA/logos/logo.jpg',
-    logoUrl: '/clients/CCA/logos/logo.jpg',
-    logoPosition: 'top-left',
-    industry: 'contractor insurance agency',
-    tagline: 'Insurance Built for Contractors',
-    styleDescription: `Professional business aesthetic with orange (#F97316) accents on clean dark slate backgrounds.
-Corporate, trustworthy, and modern design. The style should convey expertise and reliability in the insurance industry.
-Use orange as accent color for highlights and graphic elements.`,
-    imagePromptTemplate: '',
-    phone: '(480) 535-5880',
-    website: 'contractorschoiceagency.com',
-  },
-};
+// Database image_config JSON structure
+interface DbImageConfig {
+  primaryColor?: string;
+  secondaryColor?: string;
+  backgroundColor?: string;
+  logoPath?: string;
+  logoPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  industry?: string;
+  tagline?: string;
+  styleDescription?: string;
+  phone?: string;
+  website?: string;
+}
 
-// Default config for unknown brands
-const DEFAULT_CONFIG: Omit<BrandImageConfig, 'brandId' | 'brandSlug' | 'brandName' | 'shortName'> = {
-  primaryColor: '#3B82F6', // Blue
-  secondaryColor: '#1F2937', // Dark gray
+// Default values for missing config
+const DEFAULTS = {
+  primaryColor: '#3B82F6',
+  secondaryColor: '#1F2937',
   backgroundColor: '#111827',
-  logoPath: null,
-  logoUrl: null,
-  logoPosition: 'top-left',
+  logoPosition: 'top-left' as const,
   industry: 'professional services',
   styleDescription: 'Professional business aesthetic with blue accents on dark backgrounds. Modern, clean design.',
-  imagePromptTemplate: '',
-  phone: undefined,
-  website: undefined,
 };
 
 /**
  * Build the complete image generation prompt for a brand
  */
-function buildImagePromptTemplate(
-  brandName: string,
-  config: Omit<BrandImageConfig, 'brandId' | 'brandSlug' | 'brandName' | 'shortName' | 'imagePromptTemplate'>
-): string {
-  return `Create a professional social media image for ${brandName}, a ${config.industry} company.
+function buildImagePromptTemplate(brandName: string, config: DbImageConfig): string {
+  const primaryColor = config.primaryColor || DEFAULTS.primaryColor;
+  const secondaryColor = config.secondaryColor || DEFAULTS.secondaryColor;
+  const backgroundColor = config.backgroundColor || DEFAULTS.backgroundColor;
+  const industry = config.industry || DEFAULTS.industry;
+  const styleDescription = config.styleDescription || DEFAULTS.styleDescription;
+
+  return `Create a professional social media image for ${brandName}, a ${industry} company.
 
 STYLE REQUIREMENTS:
-${config.styleDescription}
+${styleDescription}
 
 COLOR PALETTE:
-- Primary accent color: ${config.primaryColor}
-- Secondary color: ${config.secondaryColor}
-- Background: ${config.backgroundColor}
+- Primary accent color: ${primaryColor}
+- Secondary color: ${secondaryColor}
+- Background: ${backgroundColor}
 ${config.tagline ? `\nCompany tagline for inspiration: "${config.tagline}"` : ''}
 
 DESIGN RULES:
@@ -112,12 +88,12 @@ The image should look like a premium branded social media template background.`;
 }
 
 /**
- * Load brand image configuration
+ * Load brand image configuration from database
  */
 export async function getBrandImageConfig(brandId: number): Promise<BrandImageConfig | null> {
-  // Get brand from database
+  // Get brand from database including image_config
   const brandResult = await sql`
-    SELECT id, slug, name, short_name, website_url, logo_url
+    SELECT id, slug, name, short_name, website_url, logo_url, image_config
     FROM brands WHERE id = ${brandId}
   `;
 
@@ -127,24 +103,30 @@ export async function getBrandImageConfig(brandId: number): Promise<BrandImageCo
 
   const brand = brandResult[0];
   const brandSlug = brand.slug as string;
-  const upperSlug = brandSlug.toUpperCase();
 
-  // Get brand-specific config or default
-  const config = BRAND_CONFIGS[upperSlug] || DEFAULT_CONFIG;
+  // Parse image_config from database (JSONB returns as object)
+  const dbConfig: DbImageConfig = (brand.image_config as DbImageConfig) || {};
 
   // Build the prompt template
-  const imagePromptTemplate = buildImagePromptTemplate(
-    brand.name as string,
-    config
-  );
+  const imagePromptTemplate = buildImagePromptTemplate(brand.name as string, dbConfig);
 
   return {
     brandId: brand.id as number,
     brandSlug,
     brandName: brand.name as string,
     shortName: brand.short_name as string,
-    ...config,
+    primaryColor: dbConfig.primaryColor || DEFAULTS.primaryColor,
+    secondaryColor: dbConfig.secondaryColor || DEFAULTS.secondaryColor,
+    backgroundColor: dbConfig.backgroundColor || DEFAULTS.backgroundColor,
+    logoPath: dbConfig.logoPath || null,
+    logoUrl: dbConfig.logoPath || null,
+    logoPosition: dbConfig.logoPosition || DEFAULTS.logoPosition,
+    industry: dbConfig.industry || DEFAULTS.industry,
+    styleDescription: dbConfig.styleDescription || DEFAULTS.styleDescription,
+    tagline: dbConfig.tagline,
     imagePromptTemplate,
+    phone: dbConfig.phone,
+    website: dbConfig.website,
   };
 }
 
