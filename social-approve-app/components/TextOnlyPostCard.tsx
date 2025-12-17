@@ -20,9 +20,11 @@ export default function TextOnlyPostCard({ post, onApprove, onReject, onUpdate, 
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
-  // Check if post has an image
-  const hasImage = post.image_filename && post.image_filename.trim() !== '';
-  const imageUrl = hasImage ? `/images/${post.image_filename}` : null;
+  // Check if post has a real image (not placeholder)
+  const hasRealImage = post.image_filename &&
+    post.image_filename.trim() !== '' &&
+    !post.image_filename.toLowerCase().includes('placeholder');
+  const imageUrl = hasRealImage ? `/images/${post.image_filename}` : null;
 
   // Convert URLs in text to clickable links
   const renderContentWithLinks = (content: string) => {
@@ -124,8 +126,8 @@ export default function TextOnlyPostCard({ post, onApprove, onReject, onUpdate, 
     }
   };
 
-  // Compact layout for text-only posts, full layout for posts with images
-  if (hasImage && imageUrl) {
+  // Compact layout for text-only posts, full layout for posts with real images
+  if (hasRealImage && imageUrl) {
     // FULL LAYOUT - Post with image
     return (
       <div className={`w-full max-w-2xl rounded-xl border-2 ${getStatusColor()} shadow-lg hover:shadow-xl overflow-hidden transition-all duration-200 relative`}>
