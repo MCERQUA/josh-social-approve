@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
       console.log(`[ImageGen] Generating image for post ${post_id}: "${post.title}"`);
 
       // Call Gemini 3 Pro Image API for image generation
-      // Using gemini-3-pro-image-preview at 1024x1024 (1K) resolution
+      // Using gemini-3-pro-image-preview at 1K resolution (1024x1024)
       const geminiResponse = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiApiKey}`,
         {
@@ -278,8 +278,10 @@ export async function POST(request: NextRequest) {
               }
             ],
             generationConfig: {
-              responseModalities: ['IMAGE', 'TEXT'],
-              imageDimension: '1024x1024'
+              imageConfig: {
+                aspectRatio: '1:1',
+                imageSize: '1K'
+              }
             }
           }),
         }
