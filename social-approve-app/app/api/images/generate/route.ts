@@ -278,6 +278,10 @@ export async function POST(request: NextRequest) {
               }
             ],
             generationConfig: {
+              // Gemini 3 uses reasoning - 'low' is faster, 'high' for better quality
+              thinkingConfig: {
+                thinkingLevel: 'low'
+              },
               imageConfig: {
                 aspectRatio: '1:1',
                 imageSize: '1K'
@@ -290,7 +294,20 @@ export async function POST(request: NextRequest) {
       if (!geminiResponse.ok) {
         const errorText = await geminiResponse.text();
         console.error('[Gemini] API error:', errorText);
-        throw new Error(`Image generation failed: ${geminiResponse.status}`);
+
+        // Parse specific Gemini errors
+        let errorDetail = `Status ${geminiResponse.status}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error?.message) {
+            errorDetail = errorJson.error.message;
+          }
+        } catch {
+          // Use raw text if not JSON
+          errorDetail = errorText.substring(0, 200);
+        }
+
+        throw new Error(`Image generation failed: ${errorDetail}`);
       }
 
       const geminiData = await geminiResponse.json();
