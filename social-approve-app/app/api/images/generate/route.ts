@@ -3,6 +3,7 @@ import { sql } from '@/lib/db';
 import { commitImage, isConfigured as isGitHubConfigured, getImageUrl } from '@/lib/github';
 import { getBrandImageConfig, buildPostImagePrompt, BrandImageConfig } from '@/lib/brand-image-config';
 import sharp from 'sharp';
+import { GoogleGenAI } from '@google/genai';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60 seconds for image generation
@@ -260,91 +261,78 @@ export async function POST(request: NextRequest) {
 
       console.log(`[ImageGen] Generating image for post ${post_id}: "${post.title}"`);
 
-      // Call Gemini 3 Pro Image API for image generation
-      // Using gemini-3-pro-image-preview at 1K resolution (1024x1024)
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      // Initialize Google GenAI SDK (official SDK, not REST API)
+      const genAI = new GoogleGenAI({ apiKey: geminiApiKey });
+
+      // Call Gemini 3 Pro Image using official SDK
+      // This properly handles thinking mode which is automatic in Gemini 3
+      console.log('[ImageGen] Calling Gemini 3 Pro Image via official SDK...');
+
+      let geminiResponse;
+      try {
+        geminiResponse = await genAI.models.generateContent({
+          model: 'gemini-3-pro-image-preview',
+          contents: imagePrompt,
+          config: {
+            responseModalities: ['TEXT', 'IMAGE'],
+            // SDK handles thinking automatically - no config needed
           },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: imagePrompt }
-                ]
-              }
-            ],
-            generationConfig: {
-              // Required for image generation
-              responseModalities: ['TEXT', 'IMAGE'],
-              // Gemini 3 uses reasoning - 'low' is faster, 'high' for better quality
-              thinkingConfig: {
-                thinkingLevel: 'low'
-              },
-              imageConfig: {
-                aspectRatio: '1:1',
-                imageSize: '1K'
-              }
-            }
-          }),
+        });
+      } catch (sdkError) {
+        const errorMessage = sdkError instanceof Error ? sdkError.message : String(sdkError);
+        console.error('[Gemini SDK] Error:', errorMessage);
+
+        // Parse specific error types
+        if (errorMessage.includes('authentication') || errorMessage.includes('API key')) {
+          throw new Error('Gemini authentication failed - check API key');
         }
-      );
-
-      if (!geminiResponse.ok) {
-        const errorText = await geminiResponse.text();
-        console.error('[Gemini] API error:', errorText);
-
-        // Parse specific Gemini errors
-        let errorDetail = `Status ${geminiResponse.status}`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error?.message) {
-            errorDetail = errorJson.error.message;
-          }
-        } catch {
-          // Use raw text if not JSON
-          errorDetail = errorText.substring(0, 200);
+        if (errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+          throw new Error('Gemini rate limit exceeded - try again later');
+        }
+        if (errorMessage.includes('safety') || errorMessage.includes('blocked')) {
+          throw new Error('Content blocked by safety filters - modify prompt');
         }
 
-        throw new Error(`Image generation failed: ${errorDetail}`);
+        throw new Error(`Gemini API error: ${errorMessage}`);
       }
 
-      const geminiData = await geminiResponse.json();
+      // Extract image from SDK response
+      // SDK response format: response.candidates[0].content.parts[]
+      const parts = geminiResponse.candidates?.[0]?.content?.parts || [];
 
-      // Extract base64 image from Gemini response format
-      // IMPORTANT: Skip "thought" parts - only get the final rendered image
-      // Thought parts have thought: true and are interim/draft images
-      const parts = geminiData.candidates?.[0]?.content?.parts || [];
+      // Find non-thought image parts (thoughts have thought: true)
+      // Use 'any' for SDK parts since types may vary between versions
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const imageParts = parts.filter((p: any) => p.inlineData?.data && !p.thought);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const finalImagePart = imageParts[imageParts.length - 1] as any;
 
-      // Find the LAST non-thought image part (the final rendered image)
-      interface GeminiPart {
-        thought?: boolean;
-        text?: string;
-        inlineData?: { data: string; mimeType: string };
-        thoughtSignature?: string;
-      }
-
-      const finalImagePart = parts
-        .filter((p: GeminiPart) => p.inlineData?.data && !p.thought)
-        .pop(); // Get the last non-thought image
-
-      const rawImageBase64 = finalImagePart?.inlineData?.data;
-      if (!rawImageBase64) {
-        // Log what we got for debugging
-        const partTypes = parts.map((p: GeminiPart) => ({
+      if (!finalImagePart?.inlineData?.data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const partTypes = parts.map((p: any) => ({
           hasImage: !!p.inlineData,
           isThought: !!p.thought,
           hasText: !!p.text
         }));
-        console.error('[Gemini] No final image in response. Parts:', JSON.stringify(partTypes));
-        console.error('[Gemini] Full response:', JSON.stringify(geminiData).substring(0, 500));
-        throw new Error('No image generated - only received thought/interim images');
+        console.error('[Gemini] No final image. Parts:', JSON.stringify(partTypes));
+        throw new Error('No image generated by Gemini');
       }
 
-      console.log(`[ImageGen] Got final image (skipped ${parts.filter((p: GeminiPart) => p.thought).length} thought images)`);
+      // Convert SDK response to base64 string
+      // SDK may return Uint8Array, Buffer, or string depending on version
+      let rawImageBase64: string;
+      const imageData = finalImagePart.inlineData.data;
+      if (imageData instanceof Uint8Array || Buffer.isBuffer(imageData)) {
+        rawImageBase64 = Buffer.from(imageData).toString('base64');
+      } else if (typeof imageData === 'string') {
+        rawImageBase64 = imageData;
+      } else {
+        throw new Error('Unexpected image data format from Gemini');
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const thoughtCount = parts.filter((p: any) => p.thought).length;
+      console.log(`[ImageGen] Got final image (${thoughtCount} thought images, ${imageParts.length} final images)`);
 
       // Compress image
       console.log(`[ImageGen] Raw image size: ${Math.round(rawImageBase64.length * 0.75 / 1024)}KB`);
