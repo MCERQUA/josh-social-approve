@@ -3,8 +3,6 @@ import { sql } from '@/lib/db';
 import { commitImage, isConfigured as isGitHubConfigured, getImageUrl } from '@/lib/github';
 import { getBrandImageConfig, buildPostImagePrompt, BrandImageConfig } from '@/lib/brand-image-config';
 import sharp from 'sharp';
-import { readFile } from 'fs/promises';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // Allow up to 60 seconds for image generation
@@ -36,7 +34,8 @@ function generateFilename(title: string, postId: number, brandSlug: string): str
 // Composite logo onto image using Sharp
 async function compositeLogoOnImage(
   imageBuffer: Buffer,
-  config: BrandImageConfig
+  config: BrandImageConfig,
+  baseUrl: string
 ): Promise<Buffer> {
   if (!config.logoPath) {
     console.log('[ImageGen] No logo configured for brand, skipping composite');
@@ -44,9 +43,18 @@ async function compositeLogoOnImage(
   }
 
   try {
-    // Read the logo file
-    const logoFullPath = path.join(process.cwd(), 'public', config.logoPath);
-    const logoBuffer = await readFile(logoFullPath);
+    // Fetch the logo via HTTP (serverless can't access filesystem)
+    const logoUrl = `${baseUrl}${config.logoPath}`;
+    console.log(`[ImageGen] Fetching logo from: ${logoUrl}`);
+
+    const logoResponse = await fetch(logoUrl);
+    if (!logoResponse.ok) {
+      console.error(`[ImageGen] Failed to fetch logo: ${logoResponse.status}`);
+      return imageBuffer;
+    }
+
+    const logoArrayBuffer = await logoResponse.arrayBuffer();
+    const logoBuffer = Buffer.from(logoArrayBuffer);
 
     // Get image metadata
     const imageMetadata = await sharp(imageBuffer).metadata();
@@ -179,6 +187,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'post_id is required' }, { status: 400 });
     }
 
+    // Get base URL for fetching assets (logos, etc.)
+    const baseUrl = new URL(request.url).origin;
+
     // Check GitHub is configured
     if (!isGitHubConfigured()) {
       return NextResponse.json(
@@ -295,7 +306,7 @@ export async function POST(request: NextRequest) {
       // Composite logo if brand config has one
       let finalBuffer: Buffer = compressedBuffer;
       if (brandConfig && brandConfig.logoPath) {
-        finalBuffer = await compositeLogoOnImage(compressedBuffer, brandConfig);
+        finalBuffer = await compositeLogoOnImage(compressedBuffer, brandConfig, baseUrl);
       }
 
       // Final compression

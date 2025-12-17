@@ -1,6 +1,4 @@
 import { sql } from '@/lib/db';
-import { readFile } from 'fs/promises';
-import path from 'path';
 
 export interface BrandImageConfig {
   brandId: number;
@@ -8,242 +6,97 @@ export interface BrandImageConfig {
   brandName: string;
   shortName: string;
 
-  // Colors extracted from profile
+  // Colors
   primaryColor: string;
   secondaryColor: string;
-  accentColor?: string;
   backgroundColor: string;
 
   // Logo info
-  logoPath: string | null;  // Path to logo in public folder
-  logoUrl: string | null;   // Public URL to logo
+  logoPath: string | null;
+  logoUrl: string | null;
   logoPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
-  // Style info for image generation
+  // Style info
   industry: string;
   styleDescription: string;
   tagline?: string;
 
-  // Image generation prompt template
+  // Image generation prompt
   imagePromptTemplate: string;
 
-  // Elements to avoid
-  avoidElements: string[];
-
-  // Contact info for overlays
+  // Contact info
   phone?: string;
   website?: string;
 }
 
-interface BrandColors {
-  primary: string;
-  secondary: string;
-  accent?: string;
-  background: string;
-}
-
-// Color name to hex mapping for common colors
-const COLOR_NAME_MAP: Record<string, string> = {
-  'slate': '#64748B',
-  'gray': '#6B7280',
-  'dark gray': '#374151',
-  'dark grey': '#374151',
-  'black': '#000000',
-  'white': '#FFFFFF',
-  'orange': '#F97316',
-  'blue': '#3B82F6',
-  'cyan': '#00CED1',
-  'teal': '#14B8A6',
-  'green': '#22C55E',
-  'red': '#EF4444',
-  'yellow': '#EAB308',
+// Hardcoded brand configurations for reliable serverless execution
+const BRAND_CONFIGS: Record<string, Omit<BrandImageConfig, 'brandId' | 'brandSlug' | 'brandName' | 'shortName'>> = {
+  'ICA': {
+    primaryColor: '#00CED1', // Cyan/Teal
+    secondaryColor: '#000000', // Black
+    backgroundColor: '#000000',
+    logoPath: '/clients/ICA/Company-Images/Insulation_Contractors_Logo_V3.png',
+    logoUrl: '/clients/ICA/Company-Images/Insulation_Contractors_Logo_V3.png',
+    logoPosition: 'top-left',
+    industry: 'insulation contractor services',
+    tagline: "Arizona's Extreme Heat Specialists",
+    styleDescription: `Professional template design with black background and flowing cyan (#00CED1) wave graphics.
+Modern and sleek with high contrast. Premium marketing template style with clean lines and professional contractor branding.
+The cyan color should be prominent as accent waves or flowing graphic elements.`,
+    imagePromptTemplate: '',
+    phone: '623-241-1939',
+    website: 'insulationcontractorsofarizona.com',
+  },
+  'CCA': {
+    primaryColor: '#F97316', // Orange
+    secondaryColor: '#64748B', // Slate
+    backgroundColor: '#1F2937', // Dark slate
+    logoPath: '/clients/CCA/logos/logo.jpg',
+    logoUrl: '/clients/CCA/logos/logo.jpg',
+    logoPosition: 'top-left',
+    industry: 'contractor insurance agency',
+    tagline: 'Insurance Built for Contractors',
+    styleDescription: `Professional business aesthetic with orange (#F97316) accents on clean dark slate backgrounds.
+Corporate, trustworthy, and modern design. The style should convey expertise and reliability in the insurance industry.
+Use orange as accent color for highlights and graphic elements.`,
+    imagePromptTemplate: '',
+    phone: '(480) 535-5880',
+    website: 'contractorschoiceagency.com',
+  },
 };
 
-/**
- * Try to extract a hex color from text, including color name lookup
- */
-function extractColor(colorText: string): string | null {
-  // First try to find a hex color
-  const hexMatch = colorText.match(/#[A-Fa-f0-9]{6}/);
-  if (hexMatch) {
-    return hexMatch[0];
-  }
-
-  // Try color name mapping
-  const lowerText = colorText.toLowerCase();
-  for (const [name, hex] of Object.entries(COLOR_NAME_MAP)) {
-    if (lowerText.includes(name)) {
-      return hex;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Parse colors from CLIENT-PROFILE.md content
- */
-function parseColorsFromProfile(profile: string): BrandColors {
-  const colors: BrandColors = {
-    primary: '#3B82F6', // Default blue
-    secondary: '#1F2937', // Default dark gray
-    background: '#000000', // Default black
-  };
-
-  // Look for color definitions in various formats
-  // Format 1: - **Primary:** Orange (#F97316)
-  // Format 2: | Primary | #F97316 |
-  // Format 3: Cyan/Teal | #00CED1
-  const primaryPatterns = [
-    /[-*]\s*\*\*Primary[:\*]*\*\*\s*([^\n]+)/i,
-    /\*\*Primary[:\*]*\s*([^|*\n]+)/i,
-    /Primary\s*\|\s*([^\|]+)/i,
-    /Cyan\/Teal\s*\|\s*([^\|]+)/i,
-  ];
-
-  for (const pattern of primaryPatterns) {
-    const match = profile.match(pattern);
-    if (match) {
-      const extracted = extractColor(match[1]);
-      if (extracted) {
-        colors.primary = extracted;
-        break;
-      }
-    }
-  }
-
-  // Secondary color
-  const secondaryPatterns = [
-    /[-*]\s*\*\*Secondary[:\*]*\*\*\s*([^\n]+)/i,
-    /\*\*Secondary[:\*]*\s*([^|*\n]+)/i,
-    /Secondary\s*\|\s*([^\|]+)/i,
-    /Black\s*\|\s*([^\|]+)/i,
-  ];
-
-  for (const pattern of secondaryPatterns) {
-    const match = profile.match(pattern);
-    if (match) {
-      const extracted = extractColor(match[1]);
-      if (extracted) {
-        colors.secondary = extracted;
-        break;
-      }
-    }
-  }
-
-  // Background color (often black for social media templates)
-  const bgPatterns = [
-    /[-*]\s*\*\*Background[:\*]*\*\*\s*([^\n]+)/i,
-    /Background\s*\|\s*([^\|]+)/i,
-  ];
-
-  for (const pattern of bgPatterns) {
-    const match = profile.match(pattern);
-    if (match) {
-      const extracted = extractColor(match[1]);
-      if (extracted) {
-        colors.background = extracted;
-        break;
-      }
-    }
-  }
-
-  return colors;
-}
-
-/**
- * Determine industry from brand profile
- */
-function determineIndustry(profile: string, brandSlug: string): string {
-  const lowerProfile = profile.toLowerCase();
-
-  if (lowerProfile.includes('insulation') || lowerProfile.includes('spray foam')) {
-    return 'insulation contractor services';
-  }
-  if (lowerProfile.includes('insurance') || lowerProfile.includes('contractor insurance')) {
-    return 'contractor insurance agency';
-  }
-  if (lowerProfile.includes('roofing')) {
-    return 'roofing contractor services';
-  }
-  if (lowerProfile.includes('hvac')) {
-    return 'HVAC contractor services';
-  }
-
-  // Default based on slug patterns
-  if (brandSlug.toLowerCase().includes('ica') || brandSlug.toLowerCase().includes('foam')) {
-    return 'insulation contractor services';
-  }
-  if (brandSlug.toLowerCase().includes('cca') || brandSlug.toLowerCase().includes('insurance')) {
-    return 'contractor insurance agency';
-  }
-
-  return 'professional contractor services';
-}
-
-/**
- * Extract tagline from profile
- */
-function extractTagline(profile: string): string | undefined {
-  const taglinePatterns = [
-    /\*\*Tagline[^\*]*\*\*[:\s]*"?([^"\n]+)"?/i,
-    /Tagline\/Positioning\s*\n\s*\*\*"([^"]+)"/i,
-    /### Taglines?\s*\n\s*-\s*"?([^"\n]+)/i,
-  ];
-
-  for (const pattern of taglinePatterns) {
-    const match = profile.match(pattern);
-    if (match) {
-      return match[1].trim().replace(/^"|"$/g, '');
-    }
-  }
-
-  return undefined;
-}
-
-/**
- * Build style description for image generation
- */
-function buildStyleDescription(brandSlug: string, profile: string, colors: BrandColors): string {
-  const upperSlug = brandSlug.toUpperCase();
-
-  // ICA-specific style (black bg, cyan waves, template look)
-  if (upperSlug === 'ICA' || profile.toLowerCase().includes('insulation contractors')) {
-    return `Professional template design with black background and flowing ${colors.primary} (cyan/teal) wave graphics.
-Modern and sleek with high contrast. The style should feel like a premium marketing template with clean lines and professional contractor branding.`;
-  }
-
-  // CCA-specific style (orange accents, professional insurance)
-  if (upperSlug === 'CCA' || profile.toLowerCase().includes("contractor's choice")) {
-    return `Professional business aesthetic with ${colors.primary} (orange) accents on clean slate/dark gray backgrounds.
-Corporate, trustworthy, and modern. The style should convey expertise and reliability in the insurance industry.`;
-  }
-
-  // Default professional style
-  return `Professional social media template with ${colors.primary} color accents on ${colors.background} background.
-Modern, clean design suitable for professional business posts.`;
-}
+// Default config for unknown brands
+const DEFAULT_CONFIG: Omit<BrandImageConfig, 'brandId' | 'brandSlug' | 'brandName' | 'shortName'> = {
+  primaryColor: '#3B82F6', // Blue
+  secondaryColor: '#1F2937', // Dark gray
+  backgroundColor: '#111827',
+  logoPath: null,
+  logoUrl: null,
+  logoPosition: 'top-left',
+  industry: 'professional services',
+  styleDescription: 'Professional business aesthetic with blue accents on dark backgrounds. Modern, clean design.',
+  imagePromptTemplate: '',
+  phone: undefined,
+  website: undefined,
+};
 
 /**
  * Build the complete image generation prompt for a brand
  */
 function buildImagePromptTemplate(
   brandName: string,
-  industry: string,
-  colors: BrandColors,
-  styleDescription: string,
-  tagline?: string
+  config: Omit<BrandImageConfig, 'brandId' | 'brandSlug' | 'brandName' | 'shortName' | 'imagePromptTemplate'>
 ): string {
-  return `Create a professional social media image for ${brandName}, a ${industry} company.
+  return `Create a professional social media image for ${brandName}, a ${config.industry} company.
 
 STYLE REQUIREMENTS:
-${styleDescription}
+${config.styleDescription}
 
 COLOR PALETTE:
-- Primary accent color: ${colors.primary}
-- Secondary color: ${colors.secondary}
-- Background: ${colors.background}
-${tagline ? `\nCompany tagline for inspiration: "${tagline}"` : ''}
+- Primary accent color: ${config.primaryColor}
+- Secondary color: ${config.secondaryColor}
+- Background: ${config.backgroundColor}
+${config.tagline ? `\nCompany tagline for inspiration: "${config.tagline}"` : ''}
 
 DESIGN RULES:
 - Create a visually striking 1:1 square image
@@ -251,7 +104,7 @@ DESIGN RULES:
 - Modern, professional aesthetic
 - DO NOT include any text, words, or letters
 - DO NOT include logos or watermarks
-- Leave clean space for logo overlay (upper-left corner)
+- Leave clean space in upper-left corner for logo overlay
 - Focus on abstract professional graphics, patterns, or industry-relevant imagery
 - High contrast and visually impactful
 
@@ -259,7 +112,7 @@ The image should look like a premium branded social media template background.`;
 }
 
 /**
- * Load brand image configuration from database and profile
+ * Load brand image configuration
  */
 export async function getBrandImageConfig(brandId: number): Promise<BrandImageConfig | null> {
   // Get brand from database
@@ -276,103 +129,22 @@ export async function getBrandImageConfig(brandId: number): Promise<BrandImageCo
   const brandSlug = brand.slug as string;
   const upperSlug = brandSlug.toUpperCase();
 
-  // Try to read CLIENT-PROFILE.md
-  let profile = '';
-  const profilePath = path.join(process.cwd(), 'public', 'clients', upperSlug, 'CLIENT-PROFILE.md');
+  // Get brand-specific config or default
+  const config = BRAND_CONFIGS[upperSlug] || DEFAULT_CONFIG;
 
-  try {
-    profile = await readFile(profilePath, 'utf-8');
-  } catch {
-    console.log(`No CLIENT-PROFILE.md found for ${brandSlug}`);
-  }
-
-  // Parse colors
-  const colors = parseColorsFromProfile(profile);
-
-  // Determine industry
-  const industry = determineIndustry(profile, brandSlug);
-
-  // Extract tagline
-  const tagline = extractTagline(profile);
-
-  // Build style description
-  const styleDescription = buildStyleDescription(brandSlug, profile, colors);
-
-  // Build prompt template
+  // Build the prompt template
   const imagePromptTemplate = buildImagePromptTemplate(
     brand.name as string,
-    industry,
-    colors,
-    styleDescription,
-    tagline
+    config
   );
-
-  // Find logo path
-  let logoPath: string | null = null;
-  let logoUrl: string | null = brand.logo_url as string | null;
-
-  // Check for logo in client folder (try multiple extensions)
-  const possibleLogoPaths = [
-    `Company-Images/${upperSlug}_Logo.png`,
-    `Company-Images/${brandSlug}_Logo.png`,
-    'Company-Images/logo.png',
-    'Company-Images/logo.jpg',
-    'logos/logo.png',
-    'logos/logo.jpg',
-    'logos/logo.jpeg',
-    'logo.png',
-    'logo.jpg',
-  ];
-
-  // Special case for ICA
-  if (upperSlug === 'ICA') {
-    possibleLogoPaths.unshift('Company-Images/Insulation_Contractors_Logo_V3.png');
-  }
-
-  for (const relativePath of possibleLogoPaths) {
-    const fullPath = path.join(process.cwd(), 'public', 'clients', upperSlug, relativePath);
-    try {
-      await readFile(fullPath);
-      logoPath = `/clients/${upperSlug}/${relativePath}`;
-      logoUrl = logoPath; // Use the public URL
-      break;
-    } catch {
-      // File doesn't exist, try next
-    }
-  }
-
-  // Extract phone and website from profile
-  let phone: string | undefined;
-  let website: string | undefined;
-
-  const phoneMatch = profile.match(/\*\*Phone\*\*\s*\|\s*([^\|]+)/);
-  if (phoneMatch) phone = phoneMatch[1].trim();
-
-  const websiteMatch = profile.match(/\*\*Website\*\*\s*\|\s*([^\|\n]+)/);
-  if (websiteMatch) website = websiteMatch[1].trim();
 
   return {
     brandId: brand.id as number,
     brandSlug,
     brandName: brand.name as string,
     shortName: brand.short_name as string,
-    primaryColor: colors.primary,
-    secondaryColor: colors.secondary,
-    backgroundColor: colors.background,
-    logoPath,
-    logoUrl,
-    logoPosition: 'top-left',
-    industry,
-    styleDescription,
-    tagline,
+    ...config,
     imagePromptTemplate,
-    avoidElements: [
-      'text', 'words', 'letters', 'numbers',
-      'logos', 'watermarks', 'signatures',
-      'human faces', 'realistic people'
-    ],
-    phone,
-    website,
   };
 }
 
