@@ -315,13 +315,36 @@ export async function POST(request: NextRequest) {
       const geminiData = await geminiResponse.json();
 
       // Extract base64 image from Gemini response format
+      // IMPORTANT: Skip "thought" parts - only get the final rendered image
+      // Thought parts have thought: true and are interim/draft images
       const parts = geminiData.candidates?.[0]?.content?.parts || [];
-      const imagePart = parts.find((p: { inlineData?: { data: string } }) => p.inlineData?.data);
-      const rawImageBase64 = imagePart?.inlineData?.data;
-      if (!rawImageBase64) {
-        console.error('[Imagen] No image in response:', JSON.stringify(geminiData));
-        throw new Error('No image generated');
+
+      // Find the LAST non-thought image part (the final rendered image)
+      interface GeminiPart {
+        thought?: boolean;
+        text?: string;
+        inlineData?: { data: string; mimeType: string };
+        thoughtSignature?: string;
       }
+
+      const finalImagePart = parts
+        .filter((p: GeminiPart) => p.inlineData?.data && !p.thought)
+        .pop(); // Get the last non-thought image
+
+      const rawImageBase64 = finalImagePart?.inlineData?.data;
+      if (!rawImageBase64) {
+        // Log what we got for debugging
+        const partTypes = parts.map((p: GeminiPart) => ({
+          hasImage: !!p.inlineData,
+          isThought: !!p.thought,
+          hasText: !!p.text
+        }));
+        console.error('[Gemini] No final image in response. Parts:', JSON.stringify(partTypes));
+        console.error('[Gemini] Full response:', JSON.stringify(geminiData).substring(0, 500));
+        throw new Error('No image generated - only received thought/interim images');
+      }
+
+      console.log(`[ImageGen] Got final image (skipped ${parts.filter((p: GeminiPart) => p.thought).length} thought images)`);
 
       // Compress image
       console.log(`[ImageGen] Raw image size: ${Math.round(rawImageBase64.length * 0.75 / 1024)}KB`);
