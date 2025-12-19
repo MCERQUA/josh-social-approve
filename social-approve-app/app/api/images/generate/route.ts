@@ -424,14 +424,15 @@ export async function POST(request: NextRequest) {
       const { buffer: compressedBuffer } = await compressImage(rawImageBase64);
 
       // Check if this is an advertisement-style image (has TEXT TO INCLUDE in prompt)
+      // These have branding designed into the Gemini output - no logo composite needed
       const isAdvertisementStyle = brandConfig?.styleDescription?.includes('TEXT TO INCLUDE');
 
-      // Composite logo if brand config has one - use AI vision to find optimal placement
+      // Composite logo only for stock-photo style images, NOT advertisement style
       let finalBuffer: Buffer = compressedBuffer;
       let logoPlacement: { x: number; y: number; reason: string } | null = null;
 
-      if (brandConfig && brandConfig.logoPath) {
-        // Use Gemini Vision to find optimal logo placement for ALL images
+      if (brandConfig && brandConfig.logoPath && !isAdvertisementStyle) {
+        // Use Gemini Vision to find optimal logo placement
         logoPlacement = await findOptimalLogoPlacement(rawImageBase64, genAI, LOGO_SIZE);
         finalBuffer = await compositeLogoOnImage(compressedBuffer, brandConfig, baseUrl, logoPlacement);
       }
