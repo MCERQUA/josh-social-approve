@@ -61,8 +61,16 @@ Foamology images were generating as plain stock photos with no branding, invisib
 
 ### TODO: Next Session Priority
 
-**CRITICAL FIX NEEDED:**
+**FIX 1 - CRITICAL: Disable logo composite for ad-style**
 In `app/api/images/generate/route.ts` around line 341-345:
+
+**FIX 2 - IMPORTANT: Enforce 1:1 aspect ratio**
+Add to advertisement-style prompts: "FORMAT: Square 1:1 aspect ratio for social media"
+Currently images may generate as landscape/portrait - must be square for Instagram/Facebook.
+
+**Code location for aspect ratio:**
+In `app/api/images/generate/route.ts` - the Gemini API call doesn't specify aspect ratio.
+Add to the prompt or API config: aspect_ratio: "1:1"
 
 ```typescript
 // Current code - ALWAYS composites logo:
