@@ -13,7 +13,7 @@ const IMAGE_MAX_SIZE = 1024;
 const JPEG_QUALITY = 85;
 const MAX_FILE_SIZE_KB = 500;
 const LOGO_SIZE = 180; // Logo size in pixels
-const LOGO_PADDING = 30; // Padding from edge
+const LOGO_PADDING = 30; // Padding from edge (fallback)
 
 interface GenerateImageRequest {
   post_id: number;
@@ -32,11 +32,86 @@ function generateFilename(title: string, postId: number, brandSlug: string): str
   return `${brandSlug.toLowerCase()}-${slug}-${postId}-${timestamp}.jpg`;
 }
 
+// Analyze image with Gemini Vision to find optimal logo placement
+async function findOptimalLogoPlacement(
+  imageBase64: string,
+  genAI: GoogleGenAI,
+  logoSize: number = LOGO_SIZE
+): Promise<{ x: number; y: number; reason: string } | null> {
+  try {
+    console.log('[ImageGen] Analyzing image for optimal logo placement...');
+
+    const analysisResponse = await genAI.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
+            { text: `Analyze this social media image to find the best location for a company logo.
+
+IMAGE SIZE: 1024x1024 pixels
+LOGO SIZE: ${logoSize}x${logoSize} pixels
+
+Find a location where:
+1. The logo won't cover important content, faces, or text
+2. There's sufficient contrast for visibility (avoid placing on busy areas)
+3. It looks professionally placed (corners or edges preferred)
+4. Stay within bounds: x must be 0-${1024 - logoSize}, y must be 0-${1024 - logoSize}
+
+Common good positions:
+- Top-left corner: x=30, y=30
+- Top-right corner: x=${1024 - logoSize - 30}, y=30
+- Bottom-left corner: x=30, y=${1024 - logoSize - 30}
+- Bottom-right corner: x=${1024 - logoSize - 30}, y=${1024 - logoSize - 30}
+
+But analyze the ACTUAL image content and choose the best spot.
+
+Return ONLY valid JSON (no markdown, no explanation outside JSON):
+{"x": <number>, "y": <number>, "reason": "<brief 5-10 word explanation>"}` }
+          ]
+        }
+      ]
+    });
+
+    // Extract text response
+    const responseText = analysisResponse.candidates?.[0]?.content?.parts?.[0];
+    if (!responseText || typeof responseText !== 'object' || !('text' in responseText)) {
+      console.error('[ImageGen] No text response from vision analysis');
+      return null;
+    }
+
+    // Parse JSON from response (handle potential markdown wrapping)
+    let jsonText = (responseText as { text: string }).text.trim();
+    // Remove markdown code blocks if present
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+    }
+
+    const placement = JSON.parse(jsonText);
+
+    // Validate coordinates are within bounds
+    const maxX = 1024 - logoSize;
+    const maxY = 1024 - logoSize;
+    placement.x = Math.max(0, Math.min(maxX, Math.round(placement.x)));
+    placement.y = Math.max(0, Math.min(maxY, Math.round(placement.y)));
+
+    console.log(`[ImageGen] Optimal logo placement: (${placement.x}, ${placement.y}) - ${placement.reason}`);
+    return placement;
+
+  } catch (err) {
+    console.error('[ImageGen] Vision analysis failed:', err);
+    return null;
+  }
+}
+
 // Composite logo onto image using Sharp
+// Now accepts optional dynamic coordinates from vision analysis
 async function compositeLogoOnImage(
   imageBuffer: Buffer,
   config: BrandImageConfig,
-  baseUrl: string
+  baseUrl: string,
+  dynamicPlacement?: { x: number; y: number; reason: string } | null
 ): Promise<Buffer> {
   if (!config.logoPath) {
     console.log('[ImageGen] No logo configured for brand, skipping composite');
@@ -71,28 +146,38 @@ async function compositeLogoOnImage(
       .png() // Keep logo as PNG for transparency
       .toBuffer();
 
-    // Calculate position based on config
+    // Use dynamic placement from vision analysis, or fall back to config position
     let left: number;
     let top: number;
+    let placementMethod: string;
 
-    switch (config.logoPosition) {
-      case 'top-right':
-        left = imageWidth - LOGO_SIZE - LOGO_PADDING;
-        top = LOGO_PADDING;
-        break;
-      case 'bottom-left':
-        left = LOGO_PADDING;
-        top = imageHeight - LOGO_SIZE - LOGO_PADDING;
-        break;
-      case 'bottom-right':
-        left = imageWidth - LOGO_SIZE - LOGO_PADDING;
-        top = imageHeight - LOGO_SIZE - LOGO_PADDING;
-        break;
-      case 'top-left':
-      default:
-        left = LOGO_PADDING;
-        top = LOGO_PADDING;
-        break;
+    if (dynamicPlacement) {
+      // Use AI-determined placement
+      left = dynamicPlacement.x;
+      top = dynamicPlacement.y;
+      placementMethod = `AI-optimized (${dynamicPlacement.reason})`;
+    } else {
+      // Fall back to static position from config
+      switch (config.logoPosition) {
+        case 'top-right':
+          left = imageWidth - LOGO_SIZE - LOGO_PADDING;
+          top = LOGO_PADDING;
+          break;
+        case 'bottom-left':
+          left = LOGO_PADDING;
+          top = imageHeight - LOGO_SIZE - LOGO_PADDING;
+          break;
+        case 'bottom-right':
+          left = imageWidth - LOGO_SIZE - LOGO_PADDING;
+          top = imageHeight - LOGO_SIZE - LOGO_PADDING;
+          break;
+        case 'top-left':
+        default:
+          left = LOGO_PADDING;
+          top = LOGO_PADDING;
+          break;
+      }
+      placementMethod = `static ${config.logoPosition || 'top-left'}`;
     }
 
     // Composite the logo onto the image
@@ -106,7 +191,7 @@ async function compositeLogoOnImage(
       ])
       .toBuffer();
 
-    console.log(`[ImageGen] Logo composited at ${config.logoPosition} position`);
+    console.log(`[ImageGen] Logo composited at (${left}, ${top}) - ${placementMethod}`);
     return composited;
 
   } catch (err) {
@@ -338,10 +423,20 @@ export async function POST(request: NextRequest) {
       console.log(`[ImageGen] Raw image size: ${Math.round(rawImageBase64.length * 0.75 / 1024)}KB`);
       const { buffer: compressedBuffer } = await compressImage(rawImageBase64);
 
-      // Composite logo if brand config has one
+      // Check if this is an advertisement-style image (has TEXT TO INCLUDE in prompt)
+      // These have branding baked into the Gemini output, no logo composite needed
+      const isAdvertisementStyle = brandConfig?.styleDescription?.includes('TEXT TO INCLUDE');
+
+      // Composite logo if brand config has one AND not advertisement style
       let finalBuffer: Buffer = compressedBuffer;
-      if (brandConfig && brandConfig.logoPath) {
-        finalBuffer = await compositeLogoOnImage(compressedBuffer, brandConfig, baseUrl);
+      let logoPlacement: { x: number; y: number; reason: string } | null = null;
+
+      if (brandConfig && brandConfig.logoPath && !isAdvertisementStyle) {
+        // Use Gemini Vision to find optimal logo placement
+        logoPlacement = await findOptimalLogoPlacement(rawImageBase64, genAI, LOGO_SIZE);
+        finalBuffer = await compositeLogoOnImage(compressedBuffer, brandConfig, baseUrl, logoPlacement);
+      } else if (isAdvertisementStyle) {
+        console.log('[ImageGen] Advertisement-style image - skipping logo composite (branding in design)');
       }
 
       // Final compression
@@ -380,7 +475,14 @@ export async function POST(request: NextRequest) {
         image_url: imageUrl,
         commit_sha: commitResult.commitSha,
         status: 'pending_deploy',
-        has_logo: !!(brandConfig?.logoPath),
+        has_logo: !!(brandConfig?.logoPath) && !isAdvertisementStyle,
+        is_advertisement_style: isAdvertisementStyle,
+        logo_placement: logoPlacement ? {
+          x: logoPlacement.x,
+          y: logoPlacement.y,
+          method: 'AI-optimized',
+          reason: logoPlacement.reason,
+        } : null,
         brand_colors: brandConfig ? {
           primary: brandConfig.primaryColor,
           secondary: brandConfig.secondaryColor,

@@ -59,31 +59,48 @@ Foamology images were generating as plain stock photos with no branding, invisib
    - Extracts tagline from first sentence of content
    - Passes to Gemini for complete ad generation
 
-### TODO: Next Session Priority
+### COMPLETED: December 19, 2025 Session #2
 
-**FIX 1 - CRITICAL: Disable logo composite for ad-style**
-In `app/api/images/generate/route.ts` around line 341-345:
+**FIX 1 - COMPLETED: Disable logo composite for ad-style** ✅
+Advertisement-style images (with `TEXT TO INCLUDE` in styleDescription) now skip logo composite.
+The branding is baked into the Gemini output for these designs.
 
-**FIX 2 - IMPORTANT: Enforce 1:1 aspect ratio**
-Add to advertisement-style prompts: "FORMAT: Square 1:1 aspect ratio for social media"
-Currently images may generate as landscape/portrait - must be square for Instagram/Facebook.
+**FIX 2 - COMPLETED: AI-Optimized Logo Placement** ✅
+Instead of fixed corner positions, logos are now placed dynamically:
 
-**Code location for aspect ratio:**
-In `app/api/images/generate/route.ts` - the Gemini API call doesn't specify aspect ratio.
-Add to the prompt or API config: aspect_ratio: "1:1"
+1. Gemini 3 Pro generates the image
+2. Gemini 2.0 Flash analyzes the image to find optimal logo placement
+3. Returns x,y coordinates and reason (e.g., "Clear sky area in top-left")
+4. Sharp composites logo at the AI-determined position
 
 ```typescript
-// Current code - ALWAYS composites logo:
-if (brandConfig && brandConfig.logoPath) {
-  finalBuffer = await compositeLogoOnImage(compressedBuffer, brandConfig, baseUrl);
-}
-
-// CHANGE TO - Skip for advertisement style:
+// New flow:
 const isAdvertisementStyle = brandConfig?.styleDescription?.includes('TEXT TO INCLUDE');
+
 if (brandConfig && brandConfig.logoPath && !isAdvertisementStyle) {
-  finalBuffer = await compositeLogoOnImage(compressedBuffer, brandConfig, baseUrl);
+  // Use Gemini Vision to find optimal logo placement
+  logoPlacement = await findOptimalLogoPlacement(rawImageBase64, genAI, LOGO_SIZE);
+  finalBuffer = await compositeLogoOnImage(compressedBuffer, brandConfig, baseUrl, logoPlacement);
+} else if (isAdvertisementStyle) {
+  console.log('Advertisement-style - skipping logo composite');
 }
 ```
+
+**API Response now includes:**
+```json
+{
+  "logo_placement": {
+    "x": 30,
+    "y": 814,
+    "method": "AI-optimized",
+    "reason": "Clear area at bottom-left corner"
+  },
+  "is_advertisement_style": false
+}
+```
+
+**STILL TODO: Enforce 1:1 aspect ratio**
+Add to advertisement-style prompts: "FORMAT: Square 1:1 aspect ratio for social media"
 
 ### Foamology Specific Config
 
