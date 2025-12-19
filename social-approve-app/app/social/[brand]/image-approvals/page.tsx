@@ -46,6 +46,9 @@ export default function ImageApprovalsPage() {
     try {
       setLoading(true);
 
+      // Auto-verify pending image deployments (runs in background)
+      fetch('/api/images/verify').catch(() => {});
+
       // Fetch tenant info to get brand
       const tenantRes = await fetch('/api/tenant');
       if (!tenantRes.ok) throw new Error('Failed to fetch tenant');

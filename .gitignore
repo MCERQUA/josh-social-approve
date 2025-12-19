@@ -40,3 +40,6 @@ build/
 
 # Image backups (source PNGs moved out of deploy)
 image-backups/
+
+# Local Netlify folder
+.netlify
