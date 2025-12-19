@@ -57,16 +57,23 @@ const DEFAULTS = {
  * Build the complete image generation prompt for a brand
  */
 function buildImagePromptTemplate(brandName: string, config: DbImageConfig): string {
+  const styleDescription = config.styleDescription || '';
+
+  // If styleDescription contains full prompt instructions (advertisement style), use it directly
+  if (styleDescription.includes('DESIGN LAYOUT') || styleDescription.includes('TEXT TO INCLUDE')) {
+    return styleDescription;
+  }
+
+  // Otherwise, use the default template style (stock photo approach)
   const primaryColor = config.primaryColor || DEFAULTS.primaryColor;
   const secondaryColor = config.secondaryColor || DEFAULTS.secondaryColor;
   const backgroundColor = config.backgroundColor || DEFAULTS.backgroundColor;
   const industry = config.industry || DEFAULTS.industry;
-  const styleDescription = config.styleDescription || DEFAULTS.styleDescription;
 
   return `Create a stunning, high-quality social media image for ${brandName}, a ${industry} company.
 
 BRAND STYLE:
-${styleDescription}
+${styleDescription || DEFAULTS.styleDescription}
 
 COLOR SCHEME (use these colors prominently):
 - Primary/Accent: ${primaryColor} (use for highlights, glows, key elements)
@@ -169,7 +176,39 @@ BRAND REQUIREMENTS (must follow):
 - Leave clean space in upper-left for logo overlay`;
   }
 
-  // Build prompt from template + post context
+  // Check if this is an advertisement-style template (has text instructions)
+  const isAdvertisementStyle = config.imagePromptTemplate.includes('TEXT TO INCLUDE') ||
+                                config.imagePromptTemplate.includes('DESIGN LAYOUT');
+
+  if (isAdvertisementStyle) {
+    // Create short headline from post title (max 4 words, uppercase)
+    const headline = postTitle
+      .split(' ')
+      .slice(0, 4)
+      .join(' ')
+      .toUpperCase();
+
+    // Extract a short tagline from content (first sentence or phrase)
+    const tagline = postContent
+      .split(/[.!?\n]/)[0]
+      .substring(0, 50)
+      .trim();
+
+    return `${config.imagePromptTemplate}
+
+HEADLINE TEXT FOR THIS POST:
+"${headline}"
+
+SUBTEXT/TAGLINE:
+"${tagline}"
+
+TOPIC CONTEXT:
+${postContent.substring(0, 200)}
+
+Generate a professional marketing advertisement with these text elements prominently displayed.`;
+  }
+
+  // Default: stock photo style prompt
   return `${config.imagePromptTemplate}
 
 SPECIFIC TOPIC FOR THIS IMAGE:
