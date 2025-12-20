@@ -573,31 +573,48 @@ export function BlogLibraryTab({ domain }: BlogLibraryTabProps) {
                     )}
                   </Card>
 
-                  {/* HTML Preview */}
+                  {/* HTML Preview - Isolated in iframe to prevent style leaks */}
                   <div className="rounded-lg border overflow-hidden">
                     <div className="bg-muted/50 px-4 py-2 border-b flex items-center justify-between">
                       <span className="text-sm font-medium">Article Preview</span>
                       <span className="text-xs text-muted-foreground">
-                        Background: {blogTheme?.colors.background || '#ffffff'}
+                        Isolated preview (styles won&apos;t affect dashboard)
                       </span>
                     </div>
-                    <div
-                      className="p-6 overflow-auto max-h-[800px]"
-                      style={{
-                        backgroundColor: blogTheme?.colors.background || '#ffffff'
-                      }}
-                    >
-                      <div
-                        className="prose prose-lg max-w-none"
-                        style={{
-                          '--tw-prose-body': blogTheme?.colors.text || '#1f2937',
-                          '--tw-prose-headings': blogTheme?.colors.headings || '#111827',
-                          '--tw-prose-links': blogTheme?.colors.links || '#2563eb',
-                          color: blogTheme?.colors.text || '#1f2937'
-                        } as React.CSSProperties}
-                        dangerouslySetInnerHTML={{ __html: articleDetail.htmlContent || '' }}
-                      />
-                    </div>
+                    <iframe
+                      srcDoc={`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                          <meta charset="utf-8">
+                          <meta name="viewport" content="width=device-width, initial-scale=1">
+                          <style>
+                            * { box-sizing: border-box; }
+                            body {
+                              margin: 0;
+                              padding: 24px;
+                              font-family: system-ui, -apple-system, sans-serif;
+                              background: ${blogTheme?.colors.background || '#ffffff'};
+                              color: ${blogTheme?.colors.text || '#1f2937'};
+                              line-height: 1.75;
+                            }
+                            h1, h2, h3, h4, h5, h6 {
+                              color: ${blogTheme?.colors.headings || '#111827'};
+                            }
+                            a { color: ${blogTheme?.colors.links || '#2563eb'}; }
+                            img { max-width: 100%; height: auto; }
+                          </style>
+                        </head>
+                        <body>
+                          ${articleDetail.htmlContent || '<p>No content</p>'}
+                        </body>
+                        </html>
+                      `}
+                      className="w-full border-0"
+                      style={{ height: '800px', backgroundColor: blogTheme?.colors.background || '#ffffff' }}
+                      title="Article Preview"
+                      sandbox="allow-same-origin"
+                    />
                   </div>
                 </TabsContent>
               )}
