@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
 
-const WEBSITES_DIR = '/home/josh/Josh-AI/websites';
-
-// Domain to directory mapping for websites with non-standard folder names
-const DOMAIN_MAPPING: Record<string, string> = {
-  'contractorschoiceagency.com': 'CCA'
-};
+// VPS API for filesystem access (Josh-AI content)
+const VPS_API_URL = process.env.VPS_API_URL || 'http://api.jamsocial.app';
 
 interface QueueArticle {
   id: string;
@@ -25,7 +19,7 @@ interface QueueArticle {
 /**
  * GET /api/websites/article-queue?domain=<domain>
  *
- * Loads article queue from topical-map.json (ready folder).
+ * Loads article queue from VPS API via topical-map.json.
  * Filters for articles with status 'planned' or 'researching'.
  */
 export async function GET(request: NextRequest) {
@@ -37,32 +31,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Domain parameter required' }, { status: 400 });
     }
 
-    // Path to processed topical map JSON (NEW FORMAT, with domain mapping support)
-    const websiteDir = DOMAIN_MAPPING[domain] || domain;
-    const topicalMapPath = path.join(
-      WEBSITES_DIR,
-      websiteDir,
-      'ai/knowledge/04-content-strategy/ready/topical-map.json'
-    );
+    // Call VPS API to get content
+    const vpsResponse = await fetch(`${VPS_API_URL}/api/website-content/${encodeURIComponent(domain)}`);
 
-    // Check if topical map exists
-    try {
-      await fs.access(topicalMapPath);
-    } catch {
+    if (!vpsResponse.ok) {
+      console.error('VPS API error:', vpsResponse.status);
       return NextResponse.json({
         articles: [],
-        message: 'No topical map found. Run website-research-processor to generate it from autonomous research data.'
+        message: 'Failed to connect to VPS API'
       });
     }
 
-    // Load and parse the topical map JSON
-    const jsonContent = await fs.readFile(topicalMapPath, 'utf-8');
-    const topicalMap = JSON.parse(jsonContent);
+    const vpsData = await vpsResponse.json();
+    const topicalMap = vpsData.topicalMap;
 
-    if (!topicalMap.pillars || !Array.isArray(topicalMap.pillars)) {
+    if (!topicalMap || !topicalMap.pillars || !Array.isArray(topicalMap.pillars)) {
       return NextResponse.json({
         articles: [],
-        message: 'Invalid topical map format. Expected pillars array.'
+        message: 'No topical map found or invalid format.'
       });
     }
 
@@ -84,7 +70,7 @@ export async function GET(request: NextRequest) {
         const priority = normalizePriority(pillar.priority);
 
         articles.push({
-          id: `${pillar.id}-${article.id}`,  // Use stable article.id, not title
+          id: `${pillar.id}-${article.id}`,
           title: article.title || article.id,
           slug: slugify(article.url || article.title || article.id),
           target_keyword: article.keyword || pillar.primaryKeyword || '',
@@ -100,7 +86,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Sort articles by their order (if queueOrder was set by randomize, it will be used)
+    // Sort articles by their order
     articles.sort((a, b) => a.order - b.order);
 
     // Re-assign sequential orders after sorting
@@ -137,8 +123,8 @@ function normalizePriority(priority: string | undefined): 'high' | 'medium' | 'l
 function slugify(text: string): string {
   return text
     .toLowerCase()
-    .replace(/^\/+|\/+$/g, '') // Remove leading/trailing slashes
-    .replace(/\//g, '-') // Replace slashes with hyphens
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/\//g, '-')
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
@@ -146,7 +132,6 @@ function slugify(text: string): string {
 }
 
 function estimateTimeHours(title: string): number {
-  // Estimate based on article complexity
   const titleLower = title.toLowerCase();
 
   if (titleLower.includes('guide') || titleLower.includes('complete')) {
