@@ -1245,6 +1245,262 @@ Work autonomously until Phase 9 is complete.`;
   return prompt;
 }
 
+/**
+ * GET /api/website-content/:domainFolder/automation
+ *
+ * Gets automation configuration for a domain
+ */
+app.get('/api/website-content/:domainFolder/automation', async (req, res) => {
+  try {
+    const { domainFolder } = req.params;
+    const folderName = resolveFolderName(domainFolder);
+    const websitePath = path.join(JOSH_AI_WEBSITES_DIR, folderName);
+
+    // Check if website exists
+    try {
+      await fs.access(websitePath);
+    } catch {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    const configPath = path.join(websitePath, 'ai/blog-research/automation-config.json');
+
+    let config = {
+      enabled: false,
+      domain: domainFolder,
+      schedule: 'Daily at 3 AM',
+      cronExpression: '0 3 * * *',
+      lastRun: null,
+      nextRun: null,
+      totalProcessed: 0,
+      history: []
+    };
+
+    try {
+      const configContent = await fs.readFile(configPath, 'utf-8');
+      config = { ...config, ...JSON.parse(configContent) };
+    } catch {
+      // Config doesn't exist yet, use defaults
+    }
+
+    res.json(config);
+  } catch (error) {
+    console.error('Error getting automation config:', error);
+    res.status(500).json({ error: 'Failed to get automation config', details: error.message });
+  }
+});
+
+/**
+ * POST /api/website-content/:domainFolder/automation
+ *
+ * Updates automation configuration for a domain
+ */
+app.post('/api/website-content/:domainFolder/automation', async (req, res) => {
+  try {
+    const { domainFolder } = req.params;
+    const { enabled, schedule, cronExpression } = req.body;
+    const folderName = resolveFolderName(domainFolder);
+    const websitePath = path.join(JOSH_AI_WEBSITES_DIR, folderName);
+
+    // Check if website exists
+    try {
+      await fs.access(websitePath);
+    } catch {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    const configDir = path.join(websitePath, 'ai/blog-research');
+    const configPath = path.join(configDir, 'automation-config.json');
+
+    // Ensure directory exists
+    await fs.mkdir(configDir, { recursive: true });
+
+    // Load existing config or create new
+    let config = {
+      enabled: false,
+      domain: domainFolder,
+      schedule: 'Daily at 3 AM',
+      cronExpression: '0 3 * * *',
+      lastRun: null,
+      nextRun: null,
+      totalProcessed: 0,
+      history: []
+    };
+
+    try {
+      const existingContent = await fs.readFile(configPath, 'utf-8');
+      config = { ...config, ...JSON.parse(existingContent) };
+    } catch {
+      // Config doesn't exist yet
+    }
+
+    // Update config
+    if (typeof enabled === 'boolean') config.enabled = enabled;
+    if (schedule) config.schedule = schedule;
+    if (cronExpression) config.cronExpression = cronExpression;
+
+    // Save config
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+
+    res.json({
+      success: true,
+      message: config.enabled ? 'Automation enabled' : 'Automation disabled',
+      config
+    });
+  } catch (error) {
+    console.error('Error updating automation config:', error);
+    res.status(500).json({ error: 'Failed to update automation config', details: error.message });
+  }
+});
+
+/**
+ * POST /api/website-content/:domainFolder/automation/trigger
+ *
+ * Manually triggers article research for the next item in queue
+ */
+app.post('/api/website-content/:domainFolder/automation/trigger', async (req, res) => {
+  try {
+    const { domainFolder } = req.params;
+    const folderName = resolveFolderName(domainFolder);
+    const knowledgePath = await findAIKnowledgePath(folderName);
+
+    if (!knowledgePath) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    // Load topical map to find next article
+    const topicalMapPath = path.join(knowledgePath, '04-content-strategy/ready/topical-map.json');
+
+    let topicalMap;
+    try {
+      const content = await fs.readFile(topicalMapPath, 'utf-8');
+      topicalMap = JSON.parse(content);
+    } catch {
+      return res.status(404).json({
+        error: 'No article queue found',
+        message: 'Please generate a topical map first'
+      });
+    }
+
+    // Find next article to process (status = 'planned')
+    let nextArticle = null;
+    let pillarTitle = '';
+
+    for (const pillar of topicalMap.pillars || []) {
+      for (const article of pillar.supportingArticles || []) {
+        if (article.status === 'planned') {
+          nextArticle = article;
+          pillarTitle = pillar.title;
+          break;
+        }
+      }
+      if (nextArticle) break;
+    }
+
+    if (!nextArticle) {
+      return res.json({
+        success: false,
+        error: 'No articles in queue',
+        message: 'All articles have been processed or are in progress'
+      });
+    }
+
+    // Update article status to 'researching'
+    nextArticle.status = 'researching';
+    await fs.writeFile(topicalMapPath, JSON.stringify(topicalMap, null, 2));
+
+    // Create research prompt
+    const articleSlug = slugify(nextArticle.title || nextArticle.id);
+    const websitePath = path.join(JOSH_AI_WEBSITES_DIR, folderName);
+    const logDir = path.join(websitePath, 'ai/blog-research/logs');
+    await fs.mkdir(logDir, { recursive: true });
+    const logPath = path.join(logDir, `${articleSlug}-${Date.now()}.log`);
+
+    const researchPrompt = `# Autonomous Blog Article Research
+
+**Website:** ${folderName}
+**Article Title:** ${nextArticle.title}
+**Target Keyword:** ${nextArticle.keyword || pillarTitle}
+**Slug:** ${articleSlug}
+
+## Your Mission
+Complete the full 9-phase blog research workflow for this article autonomously.
+
+Work in: ${knowledgePath}/10-Blog-research/${articleSlug}/
+
+## Phases to Complete
+1. Setup article directory structure
+2. Research (topic, keyword, authority links, FAQ)
+3. Quality review
+4. Article outline
+5. Write draft (3500-5000 words)
+6. Enhancement (internal links)
+7. HTML creation
+8. Final review
+9. Schema markup
+
+Work autonomously until all phases are complete.`;
+
+    // Spawn Claude Code in detached mode
+    const { spawn } = await import('child_process');
+    const logFd = await fs.open(logPath, 'w');
+
+    const claude = spawn('claude', [
+      'code',
+      '--dangerously-skip-permissions',
+      '--verbose'
+    ], {
+      cwd: '/home/josh/Josh-AI',
+      stdio: ['pipe', logFd.fd, logFd.fd],
+      detached: true
+    });
+
+    if (claude.stdin) {
+      claude.stdin.write(researchPrompt + '\n');
+      claude.stdin.end();
+    }
+
+    claude.unref();
+    await logFd.close();
+
+    // Update automation config with history
+    const configPath = path.join(websitePath, 'ai/blog-research/automation-config.json');
+    let config = { history: [], totalProcessed: 0 };
+    try {
+      const configContent = await fs.readFile(configPath, 'utf-8');
+      config = JSON.parse(configContent);
+    } catch {}
+
+    config.history = config.history || [];
+    config.history.unshift({
+      timestamp: new Date().toISOString(),
+      articleTitle: nextArticle.title,
+      articleId: nextArticle.id,
+      status: 'started'
+    });
+    config.history = config.history.slice(0, 20); // Keep last 20
+    config.totalProcessed = (config.totalProcessed || 0) + 1;
+    config.lastRun = new Date().toISOString();
+
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+
+    res.json({
+      success: true,
+      message: 'Article research started',
+      article: {
+        title: nextArticle.title,
+        keyword: nextArticle.keyword || pillarTitle,
+        slug: articleSlug
+      },
+      pid: claude.pid,
+      logPath
+    });
+  } catch (error) {
+    console.error('Error triggering automation:', error);
+    res.status(500).json({ error: 'Failed to trigger automation', details: error.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`JAM Social API server running on http://localhost:${PORT}`);
