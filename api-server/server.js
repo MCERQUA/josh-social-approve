@@ -427,14 +427,103 @@ app.post('/api/website-content/:domainFolder/randomize-queue', async (req, res) 
 });
 
 /**
+ * GET /api/website-content/:domainFolder/sessions
+ *
+ * Lists all active research sessions for a domain
+ */
+app.get('/api/website-content/:domainFolder/sessions', async (req, res) => {
+  try {
+    const { domainFolder } = req.params;
+    const folderName = resolveFolderName(domainFolder);
+    const knowledgePath = await findAIKnowledgePath(folderName);
+
+    if (!knowledgePath) {
+      return res.json({ sessions: [] });
+    }
+
+    const blogResearchPath = path.join(knowledgePath, '10-Blog-research');
+    const sessions = [];
+
+    try {
+      const entries = await fs.readdir(blogResearchPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (entry.isDirectory() && !entry.name.startsWith('.')) {
+          const sessionPath = path.join(blogResearchPath, entry.name, 'session.json');
+          try {
+            const sessionData = JSON.parse(await fs.readFile(sessionPath, 'utf-8'));
+
+            // Check if process is still running
+            const isRunning = await isProcessRunning(sessionData.pid);
+
+            sessions.push({
+              ...sessionData,
+              slug: entry.name,
+              isRunning
+            });
+          } catch {
+            // No session file for this article
+          }
+        }
+      }
+    } catch {
+      // No blog research directory
+    }
+
+    res.json({ sessions });
+  } catch (error) {
+    console.error('Error listing sessions:', error);
+    res.status(500).json({ error: 'Failed to list sessions', details: error.message });
+  }
+});
+
+/**
+ * GET /api/website-content/:domainFolder/session/:slug
+ *
+ * Gets session status for a specific article
+ */
+app.get('/api/website-content/:domainFolder/session/:slug', async (req, res) => {
+  try {
+    const { domainFolder, slug } = req.params;
+    const folderName = resolveFolderName(domainFolder);
+    const knowledgePath = await findAIKnowledgePath(folderName);
+
+    if (!knowledgePath) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    const sessionPath = path.join(knowledgePath, '10-Blog-research', slug, 'session.json');
+
+    try {
+      const sessionData = JSON.parse(await fs.readFile(sessionPath, 'utf-8'));
+      const isRunning = await isProcessRunning(sessionData.pid);
+
+      // If process died but status is still 'running', mark as failed
+      if (!isRunning && sessionData.status === 'running') {
+        sessionData.status = 'interrupted';
+        sessionData.endTime = new Date().toISOString();
+        await fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2));
+      }
+
+      res.json({ ...sessionData, isRunning });
+    } catch {
+      res.json({ exists: false, message: 'No active session for this article' });
+    }
+  } catch (error) {
+    console.error('Error getting session:', error);
+    res.status(500).json({ error: 'Failed to get session', details: error.message });
+  }
+});
+
+/**
  * POST /api/website-content/:domainFolder/start-research
  *
- * Starts autonomous research for an article using Claude Code
+ * Starts autonomous research for an article using Claude Code with session tracking
  */
 app.post('/api/website-content/:domainFolder/start-research', async (req, res) => {
   try {
     const { domainFolder } = req.params;
-    const { articleId, articleTitle, targetKeyword } = req.body;
+    const { articleId, articleTitle, targetKeyword, forceNew = false } = req.body;
 
     if (!articleId || !articleTitle) {
       return res.status(400).json({ error: 'articleId and articleTitle required' });
@@ -442,34 +531,78 @@ app.post('/api/website-content/:domainFolder/start-research', async (req, res) =
 
     const folderName = resolveFolderName(domainFolder);
     const websitePath = path.join(JOSH_AI_WEBSITES_DIR, folderName);
+    const knowledgePath = await findAIKnowledgePath(folderName);
+    const slug = slugify(articleTitle);
+
+    if (!knowledgePath) {
+      return res.status(404).json({ error: 'Website AI folder not found' });
+    }
+
+    const articlePath = path.join(knowledgePath, '10-Blog-research', slug);
+    const sessionPath = path.join(articlePath, 'session.json');
+
+    // Check for existing active session
+    if (!forceNew) {
+      try {
+        const existingSession = JSON.parse(await fs.readFile(sessionPath, 'utf-8'));
+        const isRunning = await isProcessRunning(existingSession.pid);
+
+        if (isRunning) {
+          return res.status(409).json({
+            error: 'Research already in progress',
+            message: `Article "${articleTitle}" already has an active research session`,
+            session: existingSession,
+            hint: 'Use forceNew: true to start a new session anyway'
+          });
+        }
+      } catch {
+        // No existing session, continue
+      }
+    }
+
+    // Create article directory
+    await fs.mkdir(articlePath, { recursive: true });
+
+    // Generate unique session ID
+    const sessionId = `${slug}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Create the research prompt
-    const slug = slugify(articleTitle);
-    const prompt = `Research and write a comprehensive blog article for ${folderName}:
+    const prompt = `# Autonomous Blog Article Research - Session ${sessionId}
 
-Title: ${articleTitle}
-Target Keyword: ${targetKeyword || 'N/A'}
-Slug: ${slug}
+**Website:** ${folderName}
+**Article Title:** ${articleTitle}
+**Target Keyword:** ${targetKeyword || 'N/A'}
+**Slug:** ${slug}
+**Session ID:** ${sessionId}
 
-Follow the 9-phase blog research workflow:
-1. Topic Research
-2. Keyword Research
-3. Authority Link Research
-4. FAQ Research
-5. Internal Link Research
-6. Article Outline Planning
-7. Article Design
-8. Schema Markup
-9. Final Article Generation
+## Your Mission
+Complete the full 9-phase blog research workflow for this article autonomously.
 
-Save all research to: ${websitePath}/ai/knowledge/10-Blog-research/${slug}/
+**Working Directory:** ${articlePath}/
 
-Generate a complete, SEO-optimized article with proper HTML formatting.`;
+## Phases to Complete
+1. **Setup** - Create directory structure and research-summary.md
+2. **Topic Research** - Save to topic-research/
+3. **Keyword Research** - Save to keyword-research/
+4. **Authority Link Research** - Save to authority-link-research/
+5. **FAQ Research** - Save to faq-research/
+6. **Quality Review** - Create research-quality-approved.json
+7. **Article Outline** - Create article-plan.md
+8. **Write Draft** - Create article-draft.md (3500-5000 words)
+9. **HTML Creation** - Create article-final.html
+10. **Schema Markup** - Create schema.json
+
+## IMPORTANT
+- Work autonomously until ALL phases are complete
+- Update research-summary.md with progress
+- When finished, the article-final.html and schema.json must exist
+
+Begin now.`;
 
     // Log file for this research
     const logDir = path.join(websitePath, 'ai/blog-research/logs');
     await fs.mkdir(logDir, { recursive: true });
-    const logPath = path.join(logDir, `${slug}-${Date.now()}.log`);
+    const logPath = path.join(logDir, `${sessionId}.log`);
 
     // Spawn Claude Code in detached mode
     const { spawn } = await import('child_process');
@@ -485,51 +618,212 @@ Generate a complete, SEO-optimized article with proper HTML formatting.`;
       detached: true
     });
 
+    const pid = claude.pid;
+
+    // Save session info
+    const sessionData = {
+      sessionId,
+      articleId,
+      articleTitle,
+      targetKeyword: targetKeyword || '',
+      slug,
+      pid,
+      status: 'running',
+      startTime: new Date().toISOString(),
+      logPath,
+      domain: domainFolder
+    };
+
+    await fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2));
+
     if (claude.stdin) {
       claude.stdin.write(prompt + '\n');
       claude.stdin.end();
     }
 
     claude.unref();
+    await logFd.close();
 
-    // Update article status to 'researching'
-    const knowledgePath = await findAIKnowledgePath(folderName);
-    if (knowledgePath) {
-      const topicalMapPath = path.join(knowledgePath, '04-content-strategy/ready/topical-map.json');
-      try {
-        const jsonContent = await fs.readFile(topicalMapPath, 'utf-8');
-        const topicalMap = JSON.parse(jsonContent);
+    // Update article status to 'researching' in topical map
+    const topicalMapPath = path.join(knowledgePath, '04-content-strategy/ready/topical-map.json');
+    try {
+      const jsonContent = await fs.readFile(topicalMapPath, 'utf-8');
+      const topicalMap = JSON.parse(jsonContent);
 
-        for (const pillar of topicalMap.pillars || []) {
-          for (const article of pillar.supportingArticles || []) {
-            const fullId = `${pillar.id}-${article.id}`;
-            if (fullId === articleId || article.id === articleId) {
-              article.status = 'researching';
-              break;
-            }
+      for (const pillar of topicalMap.pillars || []) {
+        for (const article of pillar.supportingArticles || []) {
+          const fullId = `${pillar.id}-${article.id}`;
+          if (fullId === articleId || article.id === articleId) {
+            article.status = 'researching';
+            article.sessionId = sessionId;
+            break;
           }
         }
-
-        await fs.writeFile(topicalMapPath, JSON.stringify(topicalMap, null, 2));
-      } catch (err) {
-        console.error('Error updating status:', err);
       }
-    }
 
-    await logFd.close();
+      await fs.writeFile(topicalMapPath, JSON.stringify(topicalMap, null, 2));
+    } catch (err) {
+      console.error('Error updating topical map status:', err);
+    }
 
     res.json({
       success: true,
-      message: 'Research started',
-      pid: claude.pid,
-      logPath,
-      slug
+      message: 'Research started with session tracking',
+      session: sessionData
     });
   } catch (error) {
     console.error('Error starting research:', error);
     res.status(500).json({ error: 'Failed to start research', details: error.message });
   }
 });
+
+/**
+ * POST /api/website-content/:domainFolder/resume-session/:slug
+ *
+ * Resumes an interrupted research session
+ */
+app.post('/api/website-content/:domainFolder/resume-session/:slug', async (req, res) => {
+  try {
+    const { domainFolder, slug } = req.params;
+    const folderName = resolveFolderName(domainFolder);
+    const knowledgePath = await findAIKnowledgePath(folderName);
+
+    if (!knowledgePath) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    const articlePath = path.join(knowledgePath, '10-Blog-research', slug);
+    const sessionPath = path.join(articlePath, 'session.json');
+
+    // Check for existing session
+    let existingSession;
+    try {
+      existingSession = JSON.parse(await fs.readFile(sessionPath, 'utf-8'));
+    } catch {
+      return res.status(404).json({ error: 'No session found for this article' });
+    }
+
+    // Check if already running
+    const isRunning = await isProcessRunning(existingSession.pid);
+    if (isRunning) {
+      return res.status(409).json({
+        error: 'Session already running',
+        session: existingSession
+      });
+    }
+
+    // Check what phases are completed
+    const phaseStatus = await checkPhaseStatus(articlePath);
+
+    if (phaseStatus.nextPhase >= 10) {
+      // Update session as completed
+      existingSession.status = 'completed';
+      existingSession.endTime = new Date().toISOString();
+      await fs.writeFile(sessionPath, JSON.stringify(existingSession, null, 2));
+
+      return res.json({
+        success: true,
+        message: 'Article research already complete',
+        session: existingSession,
+        completedPhases: phaseStatus.completed
+      });
+    }
+
+    // Generate new session ID for resume
+    const newSessionId = `${slug}-resume-${Date.now()}`;
+    const websitePath = path.join(JOSH_AI_WEBSITES_DIR, folderName);
+
+    // Build resume prompt
+    const resumePrompt = `# Resume Article Research - Session ${newSessionId}
+
+**Resuming from:** ${existingSession.sessionId}
+**Article:** ${existingSession.articleTitle}
+**Working Directory:** ${articlePath}/
+**Current Status:** Resuming from Phase ${phaseStatus.nextPhase}
+
+## Completed Phases
+${phaseStatus.completed.map(p => `✅ Phase ${p}`).join('\n')}
+
+## Your Mission
+Complete the remaining phases. DO NOT redo completed phases.
+Start with Phase ${phaseStatus.nextPhase} and continue through Phase 10.
+
+## Remaining Phases
+${phaseStatus.nextPhase <= 2 ? '- Phase 2: Research (topic, keyword, authority, FAQ)' : ''}
+${phaseStatus.nextPhase <= 3 ? '- Phase 3: Quality Review (research-quality-approved.json)' : ''}
+${phaseStatus.nextPhase <= 4 ? '- Phase 4: Article Outline (article-plan.md)' : ''}
+${phaseStatus.nextPhase <= 5 ? '- Phase 5: Write Draft (article-draft.md, 3500-5000 words)' : ''}
+${phaseStatus.nextPhase <= 6 ? '- Phase 6: Enhancement (internal-links.json)' : ''}
+${phaseStatus.nextPhase <= 7 ? '- Phase 7: HTML Creation (article-final.html)' : ''}
+${phaseStatus.nextPhase <= 8 ? '- Phase 8: Final Review (final-review-approved.json)' : ''}
+${phaseStatus.nextPhase <= 9 ? '- Phase 9: Schema Markup (schema.json)' : ''}
+
+Work autonomously until all phases are complete.`;
+
+    // Log file
+    const logDir = path.join(websitePath, 'ai/blog-research/logs');
+    await fs.mkdir(logDir, { recursive: true });
+    const logPath = path.join(logDir, `${newSessionId}.log`);
+
+    // Spawn Claude Code
+    const { spawn } = await import('child_process');
+    const logFd = await fs.open(logPath, 'w');
+
+    const claude = spawn('claude', [
+      'code',
+      '--dangerously-skip-permissions',
+      '--verbose'
+    ], {
+      cwd: '/home/josh/Josh-AI',
+      stdio: ['pipe', logFd.fd, logFd.fd],
+      detached: true
+    });
+
+    // Update session
+    const updatedSession = {
+      ...existingSession,
+      sessionId: newSessionId,
+      pid: claude.pid,
+      status: 'running',
+      resumedAt: new Date().toISOString(),
+      resumedFrom: existingSession.sessionId,
+      resumeCount: (existingSession.resumeCount || 0) + 1,
+      logPath
+    };
+
+    await fs.writeFile(sessionPath, JSON.stringify(updatedSession, null, 2));
+
+    if (claude.stdin) {
+      claude.stdin.write(resumePrompt + '\n');
+      claude.stdin.end();
+    }
+
+    claude.unref();
+    await logFd.close();
+
+    res.json({
+      success: true,
+      message: `Research resumed from Phase ${phaseStatus.nextPhase}`,
+      session: updatedSession,
+      completedPhases: phaseStatus.completed,
+      nextPhase: phaseStatus.nextPhase
+    });
+  } catch (error) {
+    console.error('Error resuming session:', error);
+    res.status(500).json({ error: 'Failed to resume session', details: error.message });
+  }
+});
+
+// Helper: Check if a process is running
+async function isProcessRunning(pid) {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * GET /api/website-content/:domainFolder/articles
@@ -1356,7 +1650,7 @@ app.post('/api/website-content/:domainFolder/automation', async (req, res) => {
 /**
  * POST /api/website-content/:domainFolder/automation/trigger
  *
- * Manually triggers article research for the next item in queue
+ * Manually triggers article research for the next item in queue with session tracking
  */
 app.post('/api/website-content/:domainFolder/automation/trigger', async (req, res) => {
   try {
@@ -1385,12 +1679,14 @@ app.post('/api/website-content/:domainFolder/automation/trigger', async (req, re
     // Find next article to process (status = 'planned')
     let nextArticle = null;
     let pillarTitle = '';
+    let pillarId = '';
 
     for (const pillar of topicalMap.pillars || []) {
       for (const article of pillar.supportingArticles || []) {
         if (article.status === 'planned') {
           nextArticle = article;
           pillarTitle = pillar.title;
+          pillarId = pillar.id;
           break;
         }
       }
@@ -1405,41 +1701,70 @@ app.post('/api/website-content/:domainFolder/automation/trigger', async (req, re
       });
     }
 
-    // Update article status to 'researching'
-    nextArticle.status = 'researching';
-    await fs.writeFile(topicalMapPath, JSON.stringify(topicalMap, null, 2));
-
-    // Create research prompt
     const articleSlug = slugify(nextArticle.title || nextArticle.id);
     const websitePath = path.join(JOSH_AI_WEBSITES_DIR, folderName);
-    const logDir = path.join(websitePath, 'ai/blog-research/logs');
-    await fs.mkdir(logDir, { recursive: true });
-    const logPath = path.join(logDir, `${articleSlug}-${Date.now()}.log`);
+    const articlePath = path.join(knowledgePath, '10-Blog-research', articleSlug);
+    const sessionPath = path.join(articlePath, 'session.json');
 
-    const researchPrompt = `# Autonomous Blog Article Research
+    // Check for existing active session
+    try {
+      const existingSession = JSON.parse(await fs.readFile(sessionPath, 'utf-8'));
+      const isRunning = await isProcessRunning(existingSession.pid);
+
+      if (isRunning) {
+        return res.status(409).json({
+          error: 'Research already in progress',
+          message: `Article "${nextArticle.title}" already has an active research session`,
+          session: existingSession
+        });
+      }
+    } catch {
+      // No existing session, continue
+    }
+
+    // Create article directory
+    await fs.mkdir(articlePath, { recursive: true });
+
+    // Generate unique session ID
+    const sessionId = `${articleSlug}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create research prompt with session tracking
+    const researchPrompt = `# Autonomous Blog Article Research - Session ${sessionId}
 
 **Website:** ${folderName}
 **Article Title:** ${nextArticle.title}
 **Target Keyword:** ${nextArticle.keyword || pillarTitle}
 **Slug:** ${articleSlug}
+**Session ID:** ${sessionId}
 
 ## Your Mission
 Complete the full 9-phase blog research workflow for this article autonomously.
 
-Work in: ${knowledgePath}/10-Blog-research/${articleSlug}/
+**Working Directory:** ${articlePath}/
 
 ## Phases to Complete
-1. Setup article directory structure
-2. Research (topic, keyword, authority links, FAQ)
-3. Quality review
-4. Article outline
-5. Write draft (3500-5000 words)
-6. Enhancement (internal links)
-7. HTML creation
-8. Final review
-9. Schema markup
+1. **Setup** - Create directory structure and research-summary.md
+2. **Topic Research** - Save to topic-research/
+3. **Keyword Research** - Save to keyword-research/
+4. **Authority Link Research** - Save to authority-link-research/
+5. **FAQ Research** - Save to faq-research/
+6. **Quality Review** - Create research-quality-approved.json
+7. **Article Outline** - Create article-plan.md
+8. **Write Draft** - Create article-draft.md (3500-5000 words)
+9. **HTML Creation** - Create article-final.html
+10. **Schema Markup** - Create schema.json
 
-Work autonomously until all phases are complete.`;
+## IMPORTANT
+- Work autonomously until ALL phases are complete
+- Update research-summary.md with progress
+- When finished, article-final.html and schema.json must exist
+
+Begin now.`;
+
+    // Log file for this research
+    const logDir = path.join(websitePath, 'ai/blog-research/logs');
+    await fs.mkdir(logDir, { recursive: true });
+    const logPath = path.join(logDir, `${sessionId}.log`);
 
     // Spawn Claude Code in detached mode
     const { spawn } = await import('child_process');
@@ -1455,6 +1780,25 @@ Work autonomously until all phases are complete.`;
       detached: true
     });
 
+    const pid = claude.pid;
+
+    // Save session info
+    const sessionData = {
+      sessionId,
+      articleId: `${pillarId}-${nextArticle.id}`,
+      articleTitle: nextArticle.title,
+      targetKeyword: nextArticle.keyword || pillarTitle,
+      slug: articleSlug,
+      pid,
+      status: 'running',
+      startTime: new Date().toISOString(),
+      logPath,
+      domain: domainFolder,
+      source: 'automation-trigger'
+    };
+
+    await fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2));
+
     if (claude.stdin) {
       claude.stdin.write(researchPrompt + '\n');
       claude.stdin.end();
@@ -1462,6 +1806,11 @@ Work autonomously until all phases are complete.`;
 
     claude.unref();
     await logFd.close();
+
+    // Update article status to 'researching' with session ID
+    nextArticle.status = 'researching';
+    nextArticle.sessionId = sessionId;
+    await fs.writeFile(topicalMapPath, JSON.stringify(topicalMap, null, 2));
 
     // Update automation config with history
     const configPath = path.join(websitePath, 'ai/blog-research/automation-config.json');
@@ -1476,6 +1825,7 @@ Work autonomously until all phases are complete.`;
       timestamp: new Date().toISOString(),
       articleTitle: nextArticle.title,
       articleId: nextArticle.id,
+      sessionId,
       status: 'started'
     });
     config.history = config.history.slice(0, 20); // Keep last 20
@@ -1486,14 +1836,8 @@ Work autonomously until all phases are complete.`;
 
     res.json({
       success: true,
-      message: 'Article research started',
-      article: {
-        title: nextArticle.title,
-        keyword: nextArticle.keyword || pillarTitle,
-        slug: articleSlug
-      },
-      pid: claude.pid,
-      logPath
+      message: 'Article research started with session tracking',
+      session: sessionData
     });
   } catch (error) {
     console.error('Error triggering automation:', error);
