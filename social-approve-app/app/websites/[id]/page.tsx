@@ -8,6 +8,9 @@ import { ArticleQueueViewer } from '@/components/website-content/article-queue-v
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
+// VPS API for content data (filesystem access)
+const VPS_API_URL = process.env.NEXT_PUBLIC_VPS_API_URL || 'http://5.161.252.203:6350';
+
 interface WebsiteContent {
   website: {
     id: number;
