@@ -6,6 +6,61 @@ const VPS_API_URL = process.env.VPS_API_URL || 'http://api.jamsocial.app';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+interface ArticleStatus {
+  slug: string;
+  hasResearch: boolean;
+  hasDraft: boolean;
+  hasHtml: boolean;
+  hasSchema: boolean;
+  completionLevel: string;
+  researchFolders: number;
+  missingComponents: string[];
+}
+
+/**
+ * Generate a Claude Code task string for fixing an incomplete article
+ * Note: domain is already the folder name (e.g., 'foamologyinsulation-web')
+ */
+function generateQCTask(domain: string, article: ArticleStatus): string {
+  // domain is already the folder name from the database
+  const basePath = `/home/josh/Josh-AI/websites/${domain}/ai/blog-research/articles/${article.slug}`;
+
+  const tasks: string[] = [];
+
+  if (article.completionLevel === 'needs-research') {
+    tasks.push(`Run complete research for article "${article.slug}"`);
+    tasks.push(`Create research folders: 01-sources, 02-seo-analysis, 03-topic-research, 04-content-gaps`);
+    tasks.push(`Generate article-draft.md`);
+    tasks.push(`Convert to article-final.html`);
+    tasks.push(`Create schema.json with Article structured data`);
+  } else if (article.completionLevel === 'needs-draft') {
+    tasks.push(`Generate article-draft.md from existing research`);
+    tasks.push(`Convert to article-final.html`);
+    tasks.push(`Create schema.json with Article structured data`);
+  } else if (article.completionLevel === 'needs-html') {
+    tasks.push(`Convert article-draft.md to article-final.html`);
+    tasks.push(`Create schema.json with Article structured data`);
+  } else if (article.completionLevel === 'needs-schema') {
+    tasks.push(`Create schema.json with Article structured data`);
+  }
+
+  return `## QC Fix Task: ${article.slug}
+
+**Domain:** ${domain}
+**Article Path:** ${basePath}
+**Status:** ${article.completionLevel}
+**Missing:** ${article.missingComponents.join(', ')}
+
+### Tasks to Complete:
+${tasks.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+
+### Instructions:
+1. Navigate to the article folder: \`cd ${basePath}\`
+2. Complete each task in order
+3. Verify all files are created and valid
+4. Run QC scan again to confirm completion`;
+}
+
 /**
  * GET /api/websites/article-queue/qc?domain=<domain>
  *
@@ -114,10 +169,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Generate the QC task string for Claude Code
+    const qcTask = generateQCTask(domain, targetArticle);
+
     return NextResponse.json({
       success: true,
       action: 'fix-one',
       targetArticle,
+      qcTask,
       scanSummary: {
         totalArticles: scanData.totalArticles,
         complete: scanData.complete,

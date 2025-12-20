@@ -97,6 +97,7 @@ export function BlogQCTab({ domain }: QCTabProps) {
   };
 
   const getQCTask = async (articleSlug?: string) => {
+    console.log('[QC-TAB] Generating task for:', articleSlug || 'next incomplete');
     setIsLoading(true);
     try {
       const response = await fetch('/api/websites/article-queue/qc', {
@@ -109,16 +110,27 @@ export function BlogQCTab({ domain }: QCTabProps) {
         })
       });
       const data = await response.json();
+      console.log('[QC-TAB] Response:', data);
 
       if (response.ok) {
         if (data.targetArticle) {
           setSelectedArticle(data.targetArticle);
-          setQcTask(data.qcTask);
-          toast.success('QC Task Generated', {
-            description: `Ready to fix: ${data.targetArticle.slug}`
+          setQcTask(data.qcTask || '');
+          if (data.qcTask) {
+            toast.success('QC Task Generated', {
+              description: `Ready to fix: ${data.targetArticle.slug}`
+            });
+          } else {
+            toast.warning('Task Generated (No Details)', {
+              description: `Article found but no task details generated`
+            });
+          }
+        } else if (data.message) {
+          toast.info('All Complete!', {
+            description: data.message
           });
         } else {
-          toast.info('All Complete!', {
+          toast.info('No Action Needed', {
             description: 'No articles need fixing.'
           });
         }
@@ -126,6 +138,7 @@ export function BlogQCTab({ domain }: QCTabProps) {
         throw new Error(data.error || 'Failed to generate task');
       }
     } catch (error: any) {
+      console.error('[QC-TAB] Error:', error);
       toast.error('Failed to Generate Task', {
         description: error.message
       });
@@ -326,7 +339,7 @@ export function BlogQCTab({ domain }: QCTabProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[400px]">
+          <ScrollArea className="h-[600px]">
             {scanData && scanData.articles.length > 0 ? (
               <div className="space-y-2">
                 {scanData.articles.map((article) => (
