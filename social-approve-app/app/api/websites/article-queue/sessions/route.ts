@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 const VPS_API_URL = process.env.VPS_API_URL || 'http://api.jamsocial.app';
 
 /**
- * GET /api/websites/article-queue/sessions?domain=<domain>
+ * GET /api/websites/article-queue/sessions?domain=xxx
  *
- * Lists all research sessions for a domain via VPS API.
+ * Gets active research/fix sessions for a domain
  */
 export async function GET(request: NextRequest) {
   try {
@@ -19,10 +19,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${VPS_API_URL}/api/website-content/${encodeURIComponent(domain)}/sessions`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const response = await fetch(
+      `${VPS_API_URL}/api/website-content/${encodeURIComponent(domain)}/sessions`,
+      { cache: 'no-store' }
+    );
 
     const data = await response.json();
 
@@ -32,9 +32,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error getting sessions:', error);
+    console.error('Error fetching sessions:', error);
     return NextResponse.json(
-      { error: 'Failed to get sessions', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch sessions', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

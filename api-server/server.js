@@ -1259,7 +1259,9 @@ app.get('/api/website-content/:domainFolder/qc', async (req, res) => {
       // Check critical files
       const hasDraft = await fileExists(path.join(articlePath, 'article-draft.md'));
       const hasHtml = await fileExists(path.join(articlePath, 'article-final.html'));
-      const hasSchema = await fileExists(path.join(articlePath, 'schema.json'));
+      // Check for schema in both locations (root or schema-markup folder)
+      const hasSchema = await fileExists(path.join(articlePath, 'schema.json')) ||
+                        await fileExists(path.join(articlePath, 'schema-markup/schema.json'));
 
       // Check research folders
       const researchFolders = ['topic-research', 'keyword-research', 'authority-link-research', 'faq-research'];
@@ -1499,7 +1501,9 @@ async function checkPhaseStatus(articlePath) {
     completed.push(8);
     nextPhase = 9;
   }
-  if (await fileExists(path.join(articlePath, 'schema.json'))) {
+  // Check for schema in both locations
+  if (await fileExists(path.join(articlePath, 'schema.json')) ||
+      await fileExists(path.join(articlePath, 'schema-markup/schema.json'))) {
     completed.push(9);
     nextPhase = 10;
   }

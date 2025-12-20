@@ -31,6 +31,17 @@ interface ArticleStatus {
   missingComponents: string[];
 }
 
+interface Session {
+  sessionId: string;
+  slug: string;
+  articleTitle: string;
+  status: 'running' | 'completed' | 'interrupted';
+  startTime: string;
+  source?: string;
+  fixingFromPhase?: number;
+  isRunning: boolean;
+}
+
 interface QCScanResult {
   domain: string;
   timestamp: string;
@@ -53,6 +64,31 @@ export function BlogQCTab({ domain }: QCTabProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isFixing, setIsFixing] = useState<string | null>(null); // slug of article being fixed
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
+
+  // Fetch active sessions
+  const fetchSessions = async () => {
+    try {
+      const response = await fetch(`/api/websites/article-queue/sessions?domain=${encodeURIComponent(domain)}`, {
+        cache: 'no-store'
+      });
+      const data = await response.json();
+      if (response.ok && data.sessions) {
+        setSessions(data.sessions);
+        // If any session completed, refresh the scan
+        const hasCompleted = data.sessions.some((s: Session) => s.status === 'completed' && !s.isRunning);
+        if (hasCompleted) {
+          runScan();
+        }
+      }
+    } catch (error) {
+      console.error('[QC-TAB] Error fetching sessions:', error);
+    }
+  };
+
+  // Get running sessions only
+  const runningSessions = sessions.filter(s => s.isRunning || s.status === 'running');
+  const runningSessionSlugs = new Set(runningSessions.map(s => s.slug));
 
   const runScan = async () => {
     console.log('[QC-TAB] Starting scan for domain:', domain);
@@ -179,6 +215,14 @@ export function BlogQCTab({ domain }: QCTabProps) {
 
   useEffect(() => {
     runScan();
+    fetchSessions();
+
+    // Poll for session updates every 10 seconds
+    const pollInterval = setInterval(() => {
+      fetchSessions();
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
   }, [domain]);
 
   return (
@@ -311,6 +355,52 @@ export function BlogQCTab({ domain }: QCTabProps) {
         </CardContent>
       </Card>
 
+      {/* Running Fixes */}
+      {runningSessions.length > 0 && (
+        <Card className="border-2 border-blue-500/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+              <CardTitle className="text-lg">Running Fixes ({runningSessions.length})</CardTitle>
+            </div>
+            <CardDescription>
+              Claude Code sessions actively fixing articles
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {runningSessions.map((session) => {
+                const elapsedMs = Date.now() - new Date(session.startTime).getTime();
+                const elapsedMin = Math.floor(elapsedMs / 60000);
+                const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
+
+                return (
+                  <div key={session.sessionId} className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <div className="h-3 w-3 bg-blue-500 rounded-full animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{session.articleTitle || session.slug}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Phase {session.fixingFromPhase || '?'} • Started {elapsedMin}m {elapsedSec}s ago
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-blue-500 border-blue-500">
+                      In Progress
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Status updates every 10 seconds. Scan will refresh when fixes complete.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Article List */}
       <Card>
         <CardHeader>
@@ -340,6 +430,12 @@ export function BlogQCTab({ domain }: QCTabProps) {
                         <span className="font-medium text-sm">{article.slug}</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {runningSessionSlugs.has(article.slug) && (
+                          <Badge variant="outline" className="text-blue-500 border-blue-500 flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Fixing...
+                          </Badge>
+                        )}
                         {getStatusBadge(article.completionLevel)}
                       </div>
                     </div>
@@ -378,7 +474,7 @@ export function BlogQCTab({ domain }: QCTabProps) {
                           </div>
                         )}
 
-                        {article.completionLevel !== 'complete' && (
+                        {article.completionLevel !== 'complete' && !runningSessionSlugs.has(article.slug) && (
                           <Button
                             size="sm"
                             variant="default"
@@ -400,6 +496,12 @@ export function BlogQCTab({ domain }: QCTabProps) {
                               </>
                             )}
                           </Button>
+                        )}
+                        {runningSessionSlugs.has(article.slug) && (
+                          <div className="text-sm text-blue-500 flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Fix in progress...
+                          </div>
                         )}
                       </div>
                     )}
