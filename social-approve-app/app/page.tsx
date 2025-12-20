@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import { useTenant } from '@/lib/tenant-context';
 
-// Force dynamic rendering to avoid build-time Clerk errors
 export const dynamic = 'force-dynamic';
 
 interface Stats {
@@ -40,24 +39,20 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [websiteLoading, setWebsiteLoading] = useState(true);
 
-  // Get display name - prefer firstName, fallback to username, then default
   const displayName = user?.firstName || user?.username || 'User';
-
-  // Show websites section for all tenants
-  const showWebsites = true;
-
-  // Determine if this is a small client (1 brand + 1 website or less)
-  const isSmallClient = brands.length <= 1 && websites.length <= 1;
   const primaryBrand = brands.length > 0 ? brands[0] : null;
   const primaryWebsite = websites.find(w => w.is_primary) || (websites.length > 0 ? websites[0] : null);
+
+  // Show management section for users with multiple brands or many websites
+  const showManagement = brands.length > 3 || websites.length > 6;
+  const showBrandsSection = brands.length > 1;
+  const showWebsitesSection = websites.length > 0;
 
   useEffect(() => {
     fetchStats();
     fetchWebsites();
-    if (showWebsites) {
-      fetchWebsiteStats();
-    }
-  }, [showWebsites]);
+    fetchWebsiteStats();
+  }, []);
 
   const fetchWebsites = async () => {
     try {
@@ -68,6 +63,8 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error fetching websites:', error);
+    } finally {
+      setWebsiteLoading(false);
     }
   };
 
@@ -76,7 +73,6 @@ export default function Home() {
       const response = await fetch('/api/posts');
       if (!response.ok) throw new Error('Failed to fetch stats');
       const posts = await response.json();
-
       setStats({
         total: posts.length,
         pending: posts.filter((p: any) => p.approval?.status === 'pending').length,
@@ -98,10 +94,7 @@ export default function Home() {
       setWebsiteStats(data);
     } catch (error) {
       console.error('Error fetching website stats:', error);
-      // Set fallback stats if API fails
       setWebsiteStats({ totalLive: 133, dotCom: 93, netlify: 92, wordpress: 41 });
-    } finally {
-      setWebsiteLoading(false);
     }
   };
 
@@ -109,323 +102,298 @@ export default function Home() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-slate-700/50 bg-slate-900/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <h1 className="text-3xl font-semibold text-white mb-2">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <h1 className="text-2xl font-semibold text-white mb-1">
             {displayName}&apos;s Dashboard
           </h1>
-          <p className="text-slate-400 text-sm">Manage your content, websites, and social media across all brands</p>
+          <p className="text-slate-400 text-sm">Manage your content, websites, and social media</p>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Social Media Stats */}
-        <section className="mb-10">
-          <h2 className="text-lg font-medium text-white mb-4">Social Media</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-slate-600 transition-colors">
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Total Posts</p>
-              <p className="text-3xl font-semibold text-white">{loading ? '—' : stats.total}</p>
-            </div>
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-amber-500/50 transition-colors">
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Pending Review</p>
-              <p className="text-3xl font-semibold text-amber-400">{loading ? '—' : stats.pending}</p>
-            </div>
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-emerald-500/50 transition-colors">
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Approved</p>
-              <p className="text-3xl font-semibold text-emerald-400">{loading ? '—' : stats.approved}</p>
-            </div>
-            <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-rose-500/50 transition-colors">
-              <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Rejected</p>
-              <p className="text-3xl font-semibold text-rose-400">{loading ? '—' : stats.rejected}</p>
-            </div>
-          </div>
-        </section>
+      <main className="max-w-7xl mx-auto px-6 py-6 space-y-8">
 
-        {/* Websites Stats - Only show for tenants with websites */}
-        {showWebsites && (
-          <section className="mb-10">
-            <h2 className="text-lg font-medium text-white mb-4">Websites</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-teal-500/50 transition-colors">
-                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">All Sites</p>
-                <p className="text-3xl font-semibold text-teal-400">{websiteLoading ? '—' : websiteStats.totalLive}</p>
-              </div>
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-blue-500/50 transition-colors">
-                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">.com Domains</p>
-                <p className="text-3xl font-semibold text-blue-400">{websiteLoading ? '—' : websiteStats.dotCom}</p>
-              </div>
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-cyan-500/50 transition-colors">
-                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">Netlify Sites</p>
-                <p className="text-3xl font-semibold text-cyan-400">{websiteLoading ? '—' : websiteStats.netlify}</p>
-              </div>
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-orange-500/50 transition-colors">
-                <p className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-1.5">WordPress Sites</p>
-                <p className="text-3xl font-semibold text-orange-400">{websiteLoading ? '—' : websiteStats.wordpress}</p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Shortcuts - Adaptive based on client size */}
-        {(primaryBrand || primaryWebsite) && (
-          <section className="mb-10">
-            <h2 className="text-lg font-medium text-white mb-4">
-              {isSmallClient ? 'Your Shortcuts' : 'Main Connections'}
-            </h2>
-
-            {/* Small Client: Direct access to brand features */}
-            {isSmallClient && primaryBrand && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Social Approvals */}
-                <Link
-                  href={`/social/${primaryBrand.slug.toUpperCase()}/approvals`}
-                  className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-amber-500/50 hover:bg-slate-800/70 transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-white font-medium">Approvals</h3>
-                      <p className="text-xs text-slate-400">Review pending posts</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center text-sm text-slate-500 group-hover:text-amber-400 transition-colors">
-                    <span>View</span>
-                    <svg className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-
-                {/* Create Post */}
-                <Link
-                  href={`/social/${primaryBrand.slug.toUpperCase()}/create`}
-                  className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-emerald-500/50 hover:bg-slate-800/70 transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-white font-medium">Create Post</h3>
-                      <p className="text-xs text-slate-400">New social content</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center text-sm text-slate-500 group-hover:text-emerald-400 transition-colors">
-                    <span>Create</span>
-                    <svg className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-
-                {/* Schedule */}
-                <Link
-                  href={`/social/${primaryBrand.slug.toUpperCase()}/schedule`}
-                  className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/70 transition-all"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-white font-medium">Schedule</h3>
-                      <p className="text-xs text-slate-400">View calendar</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center text-sm text-slate-500 group-hover:text-blue-400 transition-colors">
-                    <span>View</span>
-                    <svg className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-
-                {/* Website Content - if connected */}
-                {primaryWebsite && primaryWebsite.domain_folder && (
-                  <Link
-                    href={`/websites/${primaryWebsite.domain_folder}`}
-                    className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 transition-all"
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-white font-medium">Blog Content</h3>
-                        <p className="text-xs text-slate-400">Topical map & queue</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center text-sm text-slate-500 group-hover:text-teal-400 transition-colors">
-                      <span>Manage</span>
-                      <svg className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Website Content - not connected, show setup */}
-                {primaryWebsite && !primaryWebsite.domain_folder && (
-                  <Link
-                    href={`/websites`}
-                    className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-slate-500/50 hover:bg-slate-800/70 transition-all"
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-white font-medium">Website</h3>
-                        <p className="text-xs text-slate-400">Connect content</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center text-sm text-slate-500 group-hover:text-slate-300 transition-colors">
-                      <span>Setup</span>
-                      <svg className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                )}
-              </div>
-            )}
-
-            {/* Large Client: Show main brand cards */}
-            {!isSmallClient && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Primary Brand */}
-                {primaryBrand && (
-                  <Link
-                    href={`/social/${primaryBrand.slug.toUpperCase()}`}
-                    className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/70 transition-all"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                        <span className="text-lg font-semibold text-blue-400">
-                          {(primaryBrand.short_name || primaryBrand.slug.toUpperCase()).slice(0, 3)}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-medium truncate">{primaryBrand.name}</h3>
-                        <p className="text-xs text-slate-400">Primary brand</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center text-sm text-slate-500 group-hover:text-blue-400 transition-colors">
-                      <span>Manage social</span>
-                      <svg className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Primary Website */}
-                {primaryWebsite && (
-                  <Link
-                    href={`/websites/${primaryWebsite.domain_folder || primaryWebsite.id}`}
-                    className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 transition-all"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-medium truncate">{primaryWebsite.name}</h3>
-                        <p className="text-xs text-slate-400 truncate">{primaryWebsite.url.replace(/^https?:\/\//, '')}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center text-sm text-slate-500 group-hover:text-teal-400 transition-colors">
-                      <span>{primaryWebsite.domain_folder ? 'Manage content' : 'Setup content'}</span>
-                      <svg className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Show additional brands count */}
-                {brands.length > 1 && (
-                  <Link
-                    href="/social"
-                    className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-5 border border-slate-700/50 hover:border-slate-500/50 hover:bg-slate-800/70 transition-all"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-12 h-12 rounded-lg bg-slate-500/10 border border-slate-500/20 flex items-center justify-center">
-                        <span className="text-lg font-semibold text-slate-400">+{brands.length - 1}</span>
-                      </div>
-                      <div>
-                        <h3 className="text-white font-medium">More Brands</h3>
-                        <p className="text-xs text-slate-400">{brands.length - 1} additional brand{brands.length > 2 ? 's' : ''}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center text-sm text-slate-500 group-hover:text-slate-300 transition-colors">
-                      <span>View all</span>
-                      <svg className="w-4 h-4 ml-1 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </Link>
-                )}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Quick Access */}
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 1: QUICK ACTIONS
+            Always visible, links to primary brand actions
+        ═══════════════════════════════════════════════════════════════ */}
         <section>
-          <h2 className="text-lg font-medium text-white mb-4">Quick Access</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Social Media */}
-            <Link href="/social" className="group block">
-              <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-6 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/70 transition-all h-full">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-white mb-0.5">Social Media</h3>
-                      <p className="text-sm text-slate-400">Manage approvals across all brands</p>
-                    </div>
-                  </div>
-                  <svg className="w-5 h-5 text-slate-500 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">Quick Actions</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Approvals */}
+            <Link
+              href={primaryBrand ? `/social/${primaryBrand.slug.toUpperCase()}/approvals` : '/social'}
+              className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50 hover:border-amber-500/50 hover:bg-slate-800/70 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-white font-medium text-sm">Approvals</h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    {loading ? '...' : `${stats.pending} pending`}
+                  </p>
                 </div>
               </div>
             </Link>
 
-            {/* Websites - Only show for tenants with websites */}
-            {showWebsites && (
-              <Link href="/websites" className="group block">
-                <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg p-6 border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 transition-all h-full">
+            {/* Create Post */}
+            <Link
+              href={primaryBrand ? `/social/${primaryBrand.slug.toUpperCase()}/create` : '/social'}
+              className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50 hover:border-emerald-500/50 hover:bg-slate-800/70 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-white font-medium text-sm">Create Post</h3>
+                  <p className="text-xs text-slate-500 truncate">New content</p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Schedule */}
+            <Link
+              href={primaryBrand ? `/social/${primaryBrand.slug.toUpperCase()}/schedule` : '/social'}
+              className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/70 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-white font-medium text-sm">Schedule</h3>
+                  <p className="text-xs text-slate-500 truncate">Calendar view</p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Blog/Content */}
+            <Link
+              href={primaryWebsite?.domain_folder ? `/websites/${primaryWebsite.domain_folder}` : '/websites'}
+              className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-white font-medium text-sm">Blog Content</h3>
+                  <p className="text-xs text-slate-500 truncate">Articles & topics</p>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 2: OVERVIEW (Stats) - Compact inline badges
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500 uppercase tracking-wider mr-2">Stats:</span>
+
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/50 border border-slate-700/50 text-xs">
+            <span className="text-slate-400">Posts</span>
+            <span className="font-semibold text-white">{loading ? '—' : stats.total}</span>
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs">
+            <span className="text-amber-400/70">Pending</span>
+            <span className="font-semibold text-amber-400">{loading ? '—' : stats.pending}</span>
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs">
+            <span className="text-emerald-400/70">Approved</span>
+            <span className="font-semibold text-emerald-400">{loading ? '—' : stats.approved}</span>
+          </span>
+
+          {stats.rejected > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-xs">
+              <span className="text-rose-400/70">Rejected</span>
+              <span className="font-semibold text-rose-400">{stats.rejected}</span>
+            </span>
+          )}
+
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs">
+            <span className="text-teal-400/70">Sites</span>
+            <span className="font-semibold text-teal-400">{websiteLoading ? '—' : websiteStats.totalLive}</span>
+          </span>
+
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs">
+            <span className="text-blue-400/70">Brands</span>
+            <span className="font-semibold text-blue-400">{brands.length}</span>
+          </span>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 3: YOUR BRANDS
+            Shows brand cards (only if multiple brands)
+        ═══════════════════════════════════════════════════════════════ */}
+        {showBrandsSection && (
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Your Brands</h2>
+              {brands.length > 4 && (
+                <Link href="/social" className="text-xs text-slate-500 hover:text-white transition-colors">
+                  View all {brands.length} →
+                </Link>
+              )}
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {brands.slice(0, 4).map((brand, index) => (
+                <Link
+                  key={brand.slug}
+                  href={`/social/${brand.slug.toUpperCase()}`}
+                  className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/70 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                      index === 0
+                        ? 'bg-blue-500/10 border border-blue-500/20'
+                        : 'bg-slate-600/20 border border-slate-600/30'
+                    }`}>
+                      <span className={`text-sm font-semibold ${index === 0 ? 'text-blue-400' : 'text-slate-400'}`}>
+                        {(brand.short_name || brand.slug.toUpperCase()).slice(0, 3)}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-white font-medium text-sm truncate">{brand.name}</h3>
+                      <p className="text-xs text-slate-500">
+                        {index === 0 ? 'Primary' : 'Brand'}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+
+              {/* Show "+X more" card if many brands */}
+              {brands.length > 4 && (
+                <Link
+                  href="/social"
+                  className="group bg-slate-800/30 rounded-lg p-4 border border-slate-700/30 hover:border-slate-600 hover:bg-slate-800/50 transition-all flex items-center justify-center"
+                >
+                  <div className="text-center">
+                    <span className="text-lg font-semibold text-slate-400">+{brands.length - 4}</span>
+                    <p className="text-xs text-slate-500">more brands</p>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 4: YOUR WEBSITES
+            Shows website cards with content status
+        ═══════════════════════════════════════════════════════════════ */}
+        {showWebsitesSection && !websiteLoading && (
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider">Your Websites</h2>
+              {websites.length > 6 && (
+                <Link href="/websites" className="text-xs text-slate-500 hover:text-white transition-colors">
+                  View all {websites.length} →
+                </Link>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {websites.slice(0, 6).map((website, index) => (
+                <Link
+                  key={website.id}
+                  href={website.domain_folder ? `/websites/${website.domain_folder}` : `/websites/${website.id}`}
+                  className="group bg-slate-800/50 backdrop-blur-sm rounded-lg p-4 border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                      website.is_primary || index === 0
+                        ? 'bg-teal-500/10 border border-teal-500/20'
+                        : 'bg-slate-600/20 border border-slate-600/30'
+                    }`}>
+                      <svg className={`w-5 h-5 ${website.is_primary || index === 0 ? 'text-teal-400' : 'text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-white font-medium text-sm truncate">{website.name}</h3>
+                      <p className="text-xs text-slate-500 truncate">
+                        {website.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                      </p>
+                    </div>
+                    {website.domain_folder && (
+                      <span className="text-xs text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded">
+                        Connected
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+
+              {/* Show "+X more" card if many websites */}
+              {websites.length > 6 && (
+                <Link
+                  href="/websites"
+                  className="group bg-slate-800/30 rounded-lg p-4 border border-slate-700/30 hover:border-slate-600 hover:bg-slate-800/50 transition-all flex items-center justify-center"
+                >
+                  <div className="text-center">
+                    <span className="text-lg font-semibold text-slate-400">+{websites.length - 6}</span>
+                    <p className="text-xs text-slate-500">more sites</p>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECTION 5: MANAGEMENT
+            Full navigation links for large clients
+        ═══════════════════════════════════════════════════════════════ */}
+        {showManagement && (
+          <section>
+            <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wider mb-3">Management</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Link href="/social" className="group block">
+                <div className="bg-slate-800/30 rounded-lg p-5 border border-slate-700/30 hover:border-blue-500/30 hover:bg-slate-800/50 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-white font-medium">All Social Brands</h3>
+                        <p className="text-sm text-slate-500">{brands.length} brands connected</p>
+                      </div>
+                    </div>
+                    <svg className="w-5 h-5 text-slate-500 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </Link>
+
+              <Link href="/websites" className="group block">
+                <div className="bg-slate-800/30 rounded-lg p-5 border border-slate-700/30 hover:border-teal-500/30 hover:bg-slate-800/50 transition-all">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                         </svg>
                       </div>
                       <div>
-                        <h3 className="text-lg font-medium text-white mb-0.5">Websites</h3>
-                        <p className="text-sm text-slate-400">Manage and monitor your websites</p>
+                        <h3 className="text-white font-medium">All Websites</h3>
+                        <p className="text-sm text-slate-500">{websiteStats.totalLive} sites managed</p>
                       </div>
                     </div>
                     <svg className="w-5 h-5 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -434,9 +402,10 @@ export default function Home() {
                   </div>
                 </div>
               </Link>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
+
       </main>
     </div>
   );
