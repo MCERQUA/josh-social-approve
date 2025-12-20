@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { TopicalMapViewer } from '@/components/website-content/topical-map-viewer';
 import { ArticleQueueViewer } from '@/components/website-content/article-queue-viewer';
+import { BlogsHub } from '@/components/website-hub/blogs-hub';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -64,7 +65,7 @@ interface QueueArticle {
   estimated_hours: number;
 }
 
-type TabType = 'overview' | 'queue' | 'topical-map';
+type TabType = 'overview' | 'blog-management' | 'queue' | 'topical-map';
 
 export default function WebsiteDetailPage() {
   const params = useParams();
@@ -139,6 +140,15 @@ export default function WebsiteDetailPage() {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+      )
+    },
+    {
+      id: 'blog-management',
+      label: 'Blog Management',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
         </svg>
       )
     },
@@ -319,6 +329,10 @@ export default function WebsiteDetailPage() {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'blog-management' && (
+          <BlogsHub domain={content.website.domain_folder} />
         )}
 
         {activeTab === 'queue' && (
