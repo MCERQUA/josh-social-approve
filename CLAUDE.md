@@ -132,6 +132,9 @@ JOSH-SOCIAL-APPROVE/                    # Git root - pushed to GitHub
 ├── DEPLOYMENT-GUIDE.md                 # Deployment instructions
 ├── netlify.toml                        # Netlify configuration
 ├── migrations/                         # Database migration scripts
+├── api-server/                         # VPS API server (NOT deployed to Netlify)
+│   ├── server.js                       # Express server for filesystem access
+│   └── package.json                    # Dependencies (express, cors)
 └── social-approve-app/                 # Next.js application
     ├── app/                            # App routes and pages
     ├── lib/                            # Utilities (tenant, oneup, github)
@@ -141,6 +144,82 @@ JOSH-SOCIAL-APPROVE/                    # Git root - pushed to GitHub
     │   └── images/                     # Generated post images
     └── middleware.ts                   # Subdomain detection
 ```
+
+---
+
+## VPS API Server (Josh-AI Content Integration)
+
+Since Netlify is serverless and cannot access the VPS filesystem, a separate API server bridges the gap.
+
+### Architecture
+
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│  Netlify Frontend   │────▶│   VPS API Server    │────▶│  Josh-AI Websites   │
+│  (*.jamsocial.app)  │     │  (api.jamsocial.app)│     │  (/home/josh/...)   │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+```
+
+### VPS API Server Details
+
+- **Location:** `/home/josh/Josh-AI/websites/JOSH-SOCIAL-APPROVE/api-server/`
+- **Port:** 6350
+- **PM2 Process:** `jam-social-api`
+- **Public URL:** `http://api.jamsocial.app`
+- **Nginx Config:** `/etc/nginx/sites-available/jam-social-api`
+
+### API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check - returns `{status: "ok"}` |
+| `GET /api/website-content/:domainFolder` | Returns topical map, article queue, and stats for a website |
+| `GET /api/websites/available` | Lists all Josh-AI website folders with AI content |
+| `GET /api/proxy/josh-ai/*` | Proxy to Josh-AI API (localhost:6345) |
+
+### Domain Folder Mapping
+
+The `domain_folder` field in the websites table maps customer websites to Josh-AI folders:
+
+| Customer Domain | Josh-AI Folder |
+|-----------------|----------------|
+| contractorschoiceagency.com | CCA |
+| insulationcontractorsofarizona.com | foamologyinsulation-web |
+| foamologyinsulation.com | foamologyinsulation-web |
+| humblehelproofing.com | humble-help-roofing |
+
+### Managing the VPS API
+
+```bash
+# Check status
+pm2 status jam-social-api
+
+# View logs
+pm2 logs jam-social-api
+
+# Restart
+pm2 restart jam-social-api
+
+# Test health
+curl http://api.jamsocial.app/health
+```
+
+### Content Integration Flow
+
+1. Customer adds website in dashboard with `domain_folder` selected
+2. Frontend calls `/api/websites/{id}/content`
+3. Next.js API route fetches from VPS API: `http://api.jamsocial.app/api/website-content/{folder}`
+4. VPS API reads topical map from: `/home/josh/Josh-AI/websites/{folder}/ai/knowledge/04-content-strategy/ready/topical-map.json`
+5. Returns parsed content to frontend
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `api-server/server.js` | VPS Express server |
+| `social-approve-app/app/api/websites/[id]/content/route.ts` | Calls VPS API for content |
+| `social-approve-app/app/api/websites/available-folders/route.ts` | Lists available Josh-AI folders |
+| `social-approve-app/app/websites/[id]/page.tsx` | Website detail page with content tabs |
 
 ---
 
@@ -172,4 +251,4 @@ node ../run-migration.js
 
 ---
 
-*Last Updated: December 15, 2025*
+*Last Updated: December 20, 2025*
