@@ -1845,6 +1845,219 @@ Begin now.`;
   }
 });
 
+/**
+ * POST /api/website-content/:domainFolder/qc-fix
+ *
+ * Executes a QC fix for an incomplete article - runs the actual fix via Claude Code
+ */
+app.post('/api/website-content/:domainFolder/qc-fix', async (req, res) => {
+  try {
+    const { domainFolder } = req.params;
+    const { slug } = req.body;
+
+    if (!slug) {
+      return res.status(400).json({ error: 'slug required' });
+    }
+
+    const folderName = resolveFolderName(domainFolder);
+    const knowledgePath = await findAIKnowledgePath(folderName);
+
+    if (!knowledgePath) {
+      return res.status(404).json({ error: 'Website not found' });
+    }
+
+    const articlePath = path.join(knowledgePath, '10-Blog-research', slug);
+
+    // Check if article exists
+    try {
+      await fs.access(articlePath);
+    } catch {
+      return res.status(404).json({ error: 'Article not found' });
+    }
+
+    // Check what phases are completed to determine what needs fixing
+    const phaseStatus = await checkPhaseStatus(articlePath);
+
+    if (phaseStatus.nextPhase >= 10) {
+      return res.json({
+        success: true,
+        message: 'Article already complete - no fix needed',
+        status: 'complete'
+      });
+    }
+
+    // Generate session ID
+    const sessionId = `qc-fix-${slug}-${Date.now()}`;
+    const websitePath = path.join(JOSH_AI_WEBSITES_DIR, folderName);
+    const sessionPath = path.join(articlePath, 'session.json');
+
+    // Check for existing running session
+    try {
+      const existingSession = JSON.parse(await fs.readFile(sessionPath, 'utf-8'));
+      const isRunning = await isProcessRunning(existingSession.pid);
+
+      if (isRunning) {
+        return res.status(409).json({
+          error: 'Fix already in progress',
+          message: `Article "${slug}" already has an active session`,
+          session: existingSession
+        });
+      }
+    } catch {
+      // No existing session
+    }
+
+    // Read research summary for context
+    let articleTitle = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    let targetKeyword = '';
+
+    try {
+      const summaryContent = await fs.readFile(path.join(articlePath, 'research-summary.md'), 'utf-8');
+      const titleMatch = summaryContent.match(/\*\*Article Title:\*\*\s+(.+)/);
+      const keywordMatch = summaryContent.match(/\*\*Target Keyword:\*\*\s+(.+)/);
+      if (titleMatch) articleTitle = titleMatch[1].trim();
+      if (keywordMatch) targetKeyword = keywordMatch[1].trim();
+    } catch {
+      // Use defaults
+    }
+
+    // Build the fix prompt based on what's missing
+    let fixPrompt = `# QC Fix Task - ${articleTitle}
+
+**Session ID:** ${sessionId}
+**Article Directory:** ${articlePath}
+**Website:** ${folderName}
+**Current Phase:** ${phaseStatus.nextPhase}
+**Completed Phases:** ${phaseStatus.completed.join(', ')}
+
+## What Needs Fixing
+`;
+
+    // Determine what's missing and add specific instructions
+    if (phaseStatus.nextPhase <= 2) {
+      fixPrompt += `
+### Missing Research
+Complete the research phase:
+- topic-research/topic-research-report.md
+- keyword-research/keyword-report.md
+- authority-link-research/authority-sources.md
+- faq-research/faq-report.md
+`;
+    }
+
+    if (phaseStatus.nextPhase <= 3) {
+      fixPrompt += `
+### Missing Quality Review
+Create research-quality-approved.json confirming research is complete.
+`;
+    }
+
+    if (phaseStatus.nextPhase <= 4) {
+      fixPrompt += `
+### Missing Article Plan
+Create article-plan.md with outline and structure.
+`;
+    }
+
+    if (phaseStatus.nextPhase <= 5) {
+      fixPrompt += `
+### Missing Draft
+Write article-draft.md (3500-5000 words, high-quality SEO content).
+`;
+    }
+
+    if (phaseStatus.nextPhase <= 6) {
+      fixPrompt += `
+### Missing Internal Links
+Create internal-links.json with relevant internal link suggestions.
+`;
+    }
+
+    if (phaseStatus.nextPhase <= 7) {
+      fixPrompt += `
+### Missing HTML
+Convert draft to article-final.html (professional formatting).
+`;
+    }
+
+    if (phaseStatus.nextPhase <= 8) {
+      fixPrompt += `
+### Missing Final Review
+Create final-review-approved.json confirming article is ready.
+`;
+    }
+
+    if (phaseStatus.nextPhase <= 9) {
+      fixPrompt += `
+### Missing Schema
+Create schema.json with proper Article structured data markup.
+`;
+    }
+
+    fixPrompt += `
+## Instructions
+1. Read the existing research and draft files in ${articlePath}
+2. Complete ONLY the missing components listed above
+3. Do NOT redo completed phases
+4. Work autonomously until schema.json exists
+
+Begin immediately.`;
+
+    // Log file
+    const logDir = path.join(websitePath, 'ai/blog-research/logs');
+    await fs.mkdir(logDir, { recursive: true });
+    const logPath = path.join(logDir, `${sessionId}.log`);
+
+    // Spawn Claude Code
+    const { spawn } = await import('child_process');
+    const logFd = await fs.open(logPath, 'w');
+
+    const claude = spawn('claude', [
+      '--dangerously-skip-permissions',
+      '--verbose'
+    ], {
+      cwd: '/home/josh/Josh-AI',
+      stdio: ['pipe', logFd.fd, logFd.fd],
+      detached: true
+    });
+
+    // Save session
+    const sessionData = {
+      sessionId,
+      slug,
+      articleTitle,
+      targetKeyword,
+      pid: claude.pid,
+      status: 'running',
+      startTime: new Date().toISOString(),
+      logPath,
+      domain: domainFolder,
+      source: 'qc-fix',
+      fixingFromPhase: phaseStatus.nextPhase
+    };
+
+    await fs.writeFile(sessionPath, JSON.stringify(sessionData, null, 2));
+
+    if (claude.stdin) {
+      claude.stdin.write(fixPrompt + '\n');
+      claude.stdin.end();
+    }
+
+    claude.unref();
+    await logFd.close();
+
+    res.json({
+      success: true,
+      message: `QC fix started from Phase ${phaseStatus.nextPhase}`,
+      session: sessionData,
+      missingPhases: Array.from({ length: 10 - phaseStatus.nextPhase }, (_, i) => phaseStatus.nextPhase + i)
+    });
+  } catch (error) {
+    console.error('Error executing QC fix:', error);
+    res.status(500).json({ error: 'Failed to execute QC fix', details: error.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`JAM Social API server running on http://localhost:${PORT}`);

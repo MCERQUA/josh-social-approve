@@ -13,9 +13,10 @@ import {
   Code,
   Database,
   RefreshCw,
-  Copy,
+  Play,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -50,8 +51,7 @@ interface QCTabProps {
 export function BlogQCTab({ domain }: QCTabProps) {
   const [scanData, setScanData] = useState<QCScanResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedArticle, setSelectedArticle] = useState<ArticleStatus | null>(null);
-  const [qcTask, setQcTask] = useState<string>('');
+  const [isFixing, setIsFixing] = useState<string | null>(null); // slug of article being fixed
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
 
   const runScan = async () => {
@@ -96,62 +96,60 @@ export function BlogQCTab({ domain }: QCTabProps) {
     }
   };
 
-  const getQCTask = async (articleSlug?: string) => {
-    console.log('[QC-TAB] Generating task for:', articleSlug || 'next incomplete');
-    setIsLoading(true);
+  const executeQCFix = async (articleSlug: string) => {
+    console.log('[QC-TAB] Executing fix for:', articleSlug);
+    setIsFixing(articleSlug);
+    toast.loading(`Starting fix for ${articleSlug}...`, { id: `fix-${articleSlug}` });
+
     try {
-      const response = await fetch('/api/websites/article-queue/qc', {
+      const response = await fetch('/api/websites/article-queue/qc-fix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          domain,
-          articleSlug,
-          action: 'fix-one'
-        })
+        body: JSON.stringify({ domain, slug: articleSlug })
       });
-      const data = await response.json();
-      console.log('[QC-TAB] Response:', data);
 
-      if (response.ok) {
-        if (data.targetArticle) {
-          setSelectedArticle(data.targetArticle);
-          setQcTask(data.qcTask || '');
-          if (data.qcTask) {
-            toast.success('QC Task Generated', {
-              description: `Ready to fix: ${data.targetArticle.slug}`
-            });
-          } else {
-            toast.warning('Task Generated (No Details)', {
-              description: `Article found but no task details generated`
-            });
-          }
-        } else if (data.message) {
-          toast.info('All Complete!', {
-            description: data.message
-          });
-        } else {
-          toast.info('No Action Needed', {
-            description: 'No articles need fixing.'
-          });
-        }
+      const data = await response.json();
+      console.log('[QC-TAB] Fix response:', data);
+
+      if (response.ok && data.success) {
+        toast.success('Fix Started!', {
+          id: `fix-${articleSlug}`,
+          description: data.message || `Fixing ${articleSlug} from Phase ${data.session?.fixingFromPhase || '?'}`
+        });
+
+        // Refresh the scan after a short delay to show updated status
+        setTimeout(() => runScan(), 2000);
+      } else if (response.status === 409) {
+        toast.warning('Already Running', {
+          id: `fix-${articleSlug}`,
+          description: data.message || 'A fix is already in progress for this article'
+        });
       } else {
-        throw new Error(data.error || 'Failed to generate task');
+        throw new Error(data.error || 'Failed to start fix');
       }
     } catch (error: any) {
-      console.error('[QC-TAB] Error:', error);
-      toast.error('Failed to Generate Task', {
+      console.error('[QC-TAB] Fix error:', error);
+      toast.error('Fix Failed', {
+        id: `fix-${articleSlug}`,
         description: error.message
       });
     } finally {
-      setIsLoading(false);
+      setIsFixing(null);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied!', {
-      description: 'QC task copied to clipboard. Paste into Claude Code.'
-    });
+  const fixNextIncomplete = async () => {
+    if (!scanData) return;
+
+    // Find the first incomplete article
+    const nextIncomplete = scanData.articles.find(a => a.completionLevel !== 'complete');
+    if (nextIncomplete) {
+      await executeQCFix(nextIncomplete.slug);
+    } else {
+      toast.info('All Complete!', {
+        description: 'No articles need fixing.'
+      });
+    }
   };
 
   const getStatusBadge = (level: string) => {
@@ -270,62 +268,45 @@ export function BlogQCTab({ domain }: QCTabProps) {
         <CardHeader>
           <CardTitle>Quick Fix</CardTitle>
           <CardDescription>
-            Generate a focused task to fix one incomplete article at a time
+            Automatically fix incomplete articles - runs Claude Code on the VPS
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <Button
-              onClick={() => getQCTask()}
-              disabled={isLoading || !scanData || scanData.complete === scanData.totalArticles}
+              onClick={fixNextIncomplete}
+              disabled={isLoading || isFixing !== null || !scanData || scanData.complete === scanData.totalArticles}
+              className="min-w-[200px]"
             >
-              Fix Next Incomplete Article
+              {isFixing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Fixing...
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4 mr-2" />
+                  Fix Next Incomplete Article
+                </>
+              )}
             </Button>
           </div>
 
-          {selectedArticle && qcTask && (
-            <Card className="border-2 border-primary/50">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
-                    Task Generated
-                  </CardTitle>
-                  {getStatusBadge(selectedArticle.completionLevel)}
-                </div>
-                <CardDescription>
-                  Article: <span className="font-mono font-medium">{selectedArticle.slug}</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="bg-muted p-4 rounded-lg relative border">
-                  <Button
-                    size="sm"
-                    variant="default"
-                    className="absolute top-2 right-2"
-                    onClick={() => copyToClipboard(qcTask)}
-                  >
-                    <Copy className="h-4 w-4 mr-1" />
-                    Copy Task
-                  </Button>
-                  <pre className="text-sm whitespace-pre-wrap pr-24 font-mono">
-                    {qcTask}
-                  </pre>
-                </div>
+          {scanData && scanData.complete < scanData.totalArticles && (
+            <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
+              <p className="text-sm">
+                <span className="font-medium">How it works:</span> Clicking the button above triggers an autonomous Claude Code session on the VPS that completes missing research phases for the next incomplete article.
+              </p>
+            </div>
+          )}
 
-                <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg">
-                  <p className="text-sm font-medium">
-                    Next Steps:
-                  </p>
-                  <ol className="text-sm text-muted-foreground mt-1 list-decimal list-inside space-y-1">
-                    <li>Click &quot;Copy Task&quot; above</li>
-                    <li>Open a new Claude Code terminal session</li>
-                    <li>Paste the task and press Enter</li>
-                    <li>Claude will complete the missing components</li>
-                  </ol>
-                </div>
-              </CardContent>
-            </Card>
+          {scanData && scanData.complete === scanData.totalArticles && scanData.totalArticles > 0 && (
+            <div className="bg-green-500/10 border border-green-500/20 p-3 rounded-lg flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              <p className="text-sm font-medium text-green-600">
+                All {scanData.totalArticles} articles are complete!
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -400,13 +381,24 @@ export function BlogQCTab({ domain }: QCTabProps) {
                         {article.completionLevel !== 'complete' && (
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="default"
+                            disabled={isFixing !== null}
                             onClick={(e) => {
                               e.stopPropagation();
-                              getQCTask(article.slug);
+                              executeQCFix(article.slug);
                             }}
                           >
-                            Generate Fix Task
+                            {isFixing === article.slug ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Starting...
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-3 w-3 mr-1" />
+                                Fix Now
+                              </>
+                            )}
                           </Button>
                         )}
                       </div>
