@@ -1,6 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { BlogIdeasTab } from './blogs/ideas-tab';
+import { BlogTopicalMapTab } from './blogs/topical-map-tab';
+import { BlogQueueTab } from './blogs/queue-tab';
+import { BlogWorkflowTab } from './blogs/workflow-tab';
+import { BlogQCTab } from './blogs/qc-tab';
+import { BlogLibraryTab } from './blogs/library-tab';
+import { BlogAutomationTab } from './blogs/automation-tab';
 
 // Tab icons as inline SVGs
 const Icons = {
@@ -104,84 +111,6 @@ export function BlogsHub({ domain }: BlogsHubProps) {
         {activeTab === 'library' && <BlogLibraryTab domain={domain} />}
         {activeTab === 'automation' && <BlogAutomationTab domain={domain} />}
       </div>
-    </div>
-  );
-}
-
-// Placeholder components - will be replaced with full implementations
-function BlogIdeasTab({ domain }: { domain: string }) {
-  return (
-    <div className="text-center py-12">
-      <Icons.Ideas />
-      <h3 className="text-lg font-medium text-white mt-4">Blog Ideas</h3>
-      <p className="text-slate-400 mt-2">Add new blog article ideas for {domain}</p>
-      <p className="text-sm text-slate-500 mt-4">Coming soon...</p>
-    </div>
-  );
-}
-
-function BlogTopicalMapTab({ domain }: { domain: string }) {
-  return (
-    <div className="text-center py-12">
-      <Icons.TopicalMap />
-      <h3 className="text-lg font-medium text-white mt-4">Topical Map</h3>
-      <p className="text-slate-400 mt-2">Content hierarchy for {domain}</p>
-      <p className="text-sm text-slate-500 mt-4">Coming soon...</p>
-    </div>
-  );
-}
-
-function BlogQueueTab({ domain }: { domain: string }) {
-  return (
-    <div className="text-center py-12">
-      <Icons.Queue />
-      <h3 className="text-lg font-medium text-white mt-4">Article Queue</h3>
-      <p className="text-slate-400 mt-2">Manage research queue for {domain}</p>
-      <p className="text-sm text-slate-500 mt-4">Coming soon...</p>
-    </div>
-  );
-}
-
-function BlogWorkflowTab({ domain }: { domain: string }) {
-  return (
-    <div className="text-center py-12">
-      <Icons.Workflow />
-      <h3 className="text-lg font-medium text-white mt-4">Research Workflow</h3>
-      <p className="text-slate-400 mt-2">7-phase autonomous research for {domain}</p>
-      <p className="text-sm text-slate-500 mt-4">Coming soon...</p>
-    </div>
-  );
-}
-
-function BlogQCTab({ domain }: { domain: string }) {
-  return (
-    <div className="text-center py-12">
-      <Icons.QC />
-      <h3 className="text-lg font-medium text-white mt-4">Quality Control</h3>
-      <p className="text-slate-400 mt-2">Article completion status for {domain}</p>
-      <p className="text-sm text-slate-500 mt-4">Coming soon...</p>
-    </div>
-  );
-}
-
-function BlogLibraryTab({ domain }: { domain: string }) {
-  return (
-    <div className="text-center py-12">
-      <Icons.Library />
-      <h3 className="text-lg font-medium text-white mt-4">Article Library</h3>
-      <p className="text-slate-400 mt-2">Completed articles for {domain}</p>
-      <p className="text-sm text-slate-500 mt-4">Coming soon...</p>
-    </div>
-  );
-}
-
-function BlogAutomationTab({ domain }: { domain: string }) {
-  return (
-    <div className="text-center py-12">
-      <Icons.Automation />
-      <h3 className="text-lg font-medium text-white mt-4">Automation Settings</h3>
-      <p className="text-slate-400 mt-2">Scheduled research for {domain}</p>
-      <p className="text-sm text-slate-500 mt-4">Coming soon...</p>
     </div>
   );
 }
