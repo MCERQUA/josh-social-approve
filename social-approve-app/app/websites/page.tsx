@@ -14,10 +14,16 @@ interface Website {
   url: string;
   platform: string;
   description: string | null;
+  domain_folder: string | null;
   is_primary: boolean;
   is_active: boolean;
   created_at: string;
   screenshot_url: string | null;
+}
+
+interface AvailableFolder {
+  folder: string;
+  label: string;
 }
 
 export default function WebsitesPage() {
@@ -26,8 +32,10 @@ export default function WebsitesPage() {
   const [websites, setWebsites] = useState<Website[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newWebsite, setNewWebsite] = useState({ name: '', url: '', platform: 'custom', description: '' });
+  const [newWebsite, setNewWebsite] = useState({ name: '', url: '', platform: 'custom', description: '', domain_folder: '' });
   const [saving, setSaving] = useState(false);
+  const [availableFolders, setAvailableFolders] = useState<AvailableFolder[]>([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
 
   // For Josh, show the iframe to his Netlify dashboard
   const isJosh = tenant?.subdomain === 'josh';
@@ -39,6 +47,27 @@ export default function WebsitesPage() {
       setLoading(false);
     }
   }, [isJosh]);
+
+  useEffect(() => {
+    if (showAddForm && availableFolders.length === 0) {
+      fetchAvailableFolders();
+    }
+  }, [showAddForm]);
+
+  const fetchAvailableFolders = async () => {
+    setLoadingFolders(true);
+    try {
+      const response = await fetch('/api/websites/available-folders');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableFolders(data.folders || []);
+      }
+    } catch (error) {
+      console.error('Error fetching folders:', error);
+    } finally {
+      setLoadingFolders(false);
+    }
+  };
 
   const fetchWebsites = async () => {
     try {
@@ -68,7 +97,7 @@ export default function WebsitesPage() {
 
       const website = await response.json();
       setWebsites([...websites, website]);
-      setNewWebsite({ name: '', url: '', platform: 'custom', description: '' });
+      setNewWebsite({ name: '', url: '', platform: 'custom', description: '', domain_folder: '' });
       setShowAddForm(false);
     } catch (error) {
       console.error('Error adding website:', error);
@@ -232,6 +261,39 @@ export default function WebsitesPage() {
                   />
                 </div>
               </div>
+
+              {/* Content Integration Section */}
+              <div className="border-t border-slate-700/50 pt-4 mt-4">
+                <h3 className="text-sm font-medium text-slate-200 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Content Integration (optional)
+                </h3>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Connect to Content Source</label>
+                  <select
+                    value={newWebsite.domain_folder}
+                    onChange={(e) => setNewWebsite({ ...newWebsite, domain_folder: e.target.value })}
+                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-teal-500"
+                    disabled={loadingFolders}
+                  >
+                    <option value="">No content integration</option>
+                    {loadingFolders ? (
+                      <option disabled>Loading available sources...</option>
+                    ) : (
+                      availableFolders.map(folder => (
+                        <option key={folder.folder} value={folder.folder}>
+                          {folder.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Connect to an existing content source to view blog queue and topical maps
+                  </p>
+                </div>
+              </div>
               <div className="flex gap-3">
                 <button
                   type="submit"
@@ -337,6 +399,16 @@ export default function WebsitesPage() {
                       </svg>
                     </button>
                   </div>
+                  {website.domain_folder && (
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs text-emerald-400">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Content Connected
+                      </div>
+                    </div>
+                  )}
                   {website.description && (
                     <p className="text-slate-400 text-sm line-clamp-2 mb-3">{website.description}</p>
                   )}

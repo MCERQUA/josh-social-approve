@@ -12,6 +12,7 @@ export interface Website {
   url: string;
   platform: string;
   description: string | null;
+  domain_folder: string | null;
   is_primary: boolean;
   is_active: boolean;
   created_at: string;
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, url, platform = 'custom', description = null, is_primary = false } = body;
+    const { name, url, platform = 'custom', description = null, domain_folder = null, is_primary = false } = body;
 
     if (!name || !url) {
       return NextResponse.json(
@@ -77,8 +78,8 @@ export async function POST(request: Request) {
     }
 
     const result = await sql`
-      INSERT INTO websites (tenant_id, name, url, platform, description, is_primary)
-      VALUES (${tenantId}, ${name}, ${url}, ${platform}, ${description}, ${is_primary})
+      INSERT INTO websites (tenant_id, name, url, platform, description, domain_folder, is_primary)
+      VALUES (${tenantId}, ${name}, ${url}, ${platform}, ${description}, ${domain_folder}, ${is_primary})
       RETURNING *
     `;
 
@@ -105,7 +106,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { id, name, url, platform, description, is_primary } = body;
+    const { id, name, url, platform, description, domain_folder, is_primary } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -140,6 +141,7 @@ export async function PUT(request: Request) {
         url = COALESCE(${url}, url),
         platform = COALESCE(${platform}, platform),
         description = COALESCE(${description}, description),
+        domain_folder = COALESCE(${domain_folder}, domain_folder),
         is_primary = COALESCE(${is_primary}, is_primary),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id} AND tenant_id = ${tenantId}
