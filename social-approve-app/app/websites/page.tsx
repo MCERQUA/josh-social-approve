@@ -24,6 +24,7 @@ interface Website {
 interface AvailableFolder {
   folder: string;
   label: string;
+  hasTopicalMap?: boolean;
 }
 
 export default function WebsitesPage() {
@@ -284,7 +285,7 @@ export default function WebsitesPage() {
                     ) : (
                       availableFolders.map(folder => (
                         <option key={folder.folder} value={folder.folder}>
-                          {folder.label}
+                          {folder.label}{folder.hasTopicalMap ? ' ✓' : ' (setup needed)'}
                         </option>
                       ))
                     )}
@@ -414,7 +415,7 @@ export default function WebsitesPage() {
                   )}
                   {/* Manage Content Button */}
                   <button
-                    onClick={() => router.push(`/websites/${website.id}`)}
+                    onClick={() => router.push(`/websites/${website.domain_folder || website.id}`)}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2 mt-2 bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/30 text-teal-400 rounded-lg transition-colors text-sm"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

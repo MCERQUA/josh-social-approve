@@ -22,9 +22,19 @@ const JOSH_AI_WEBSITES_DIR = '/home/josh/Josh-AI/websites';
 // Domain to folder mapping (matches Josh-AI system)
 const DOMAIN_MAPPING = {
   'contractorschoiceagency.com': 'CCA',
-  'insulationcontractorsofarizona.com': 'foamologyinsulation-web',
+  'insulationcontractorsofarizona.com': 'ICA-Website',
   'foamologyinsulation.com': 'foamologyinsulation-web',
   'humblehelproofing.com': 'humble-help-roofing',
+};
+
+// Folder aliases for flexible matching
+const FOLDER_ALIASES = {
+  'ica': 'ICA-Website',
+  'ica-website': 'ICA-Website',
+  'foamology': 'foamologyinsulation-web',
+  'foamologyinsulation': 'foamologyinsulation-web',
+  'cca': 'CCA',
+  'contractors-choice': 'CCA',
 };
 
 // CORS configuration - allow all jamsocial.app subdomains
@@ -51,6 +61,44 @@ app.get('/health', (req, res) => {
 });
 
 /**
+ * Resolve folder name from various inputs (domain, alias, or folder name)
+ */
+function resolveFolderName(input) {
+  // Check domain mapping first
+  if (DOMAIN_MAPPING[input]) return DOMAIN_MAPPING[input];
+
+  // Check aliases (case-insensitive)
+  const lowerInput = input.toLowerCase();
+  if (FOLDER_ALIASES[lowerInput]) return FOLDER_ALIASES[lowerInput];
+
+  // Return as-is
+  return input;
+}
+
+/**
+ * Find the AI knowledge folder (handles both /ai/ and /AI/ cases)
+ */
+async function findAIKnowledgePath(folderName) {
+  const basePath = path.join(JOSH_AI_WEBSITES_DIR, folderName);
+
+  // Try lowercase first (standard)
+  const lowercasePath = path.join(basePath, 'ai/knowledge');
+  try {
+    await fs.access(lowercasePath);
+    return lowercasePath;
+  } catch {}
+
+  // Try uppercase (ICA-Website uses this)
+  const uppercasePath = path.join(basePath, 'AI/knowledge');
+  try {
+    await fs.access(uppercasePath);
+    return uppercasePath;
+  } catch {}
+
+  return null;
+}
+
+/**
  * GET /api/website-content/:domainFolder
  *
  * Returns topical map and article queue for a website
@@ -59,15 +107,16 @@ app.get('/api/website-content/:domainFolder', async (req, res) => {
   try {
     const { domainFolder } = req.params;
 
-    // Resolve folder name through mapping
-    const folderName = DOMAIN_MAPPING[domainFolder] || domainFolder;
+    // Resolve folder name through mapping and aliases
+    const folderName = resolveFolderName(domainFolder);
+
+    // Find AI knowledge path (handles /ai/ and /AI/)
+    const knowledgePath = await findAIKnowledgePath(folderName);
 
     // Path to topical map
-    const topicalMapPath = path.join(
-      JOSH_AI_WEBSITES_DIR,
-      folderName,
-      'ai/knowledge/04-content-strategy/ready/topical-map.json'
-    );
+    const topicalMapPath = knowledgePath
+      ? path.join(knowledgePath, '04-content-strategy/ready/topical-map.json')
+      : path.join(JOSH_AI_WEBSITES_DIR, folderName, 'ai/knowledge/04-content-strategy/ready/topical-map.json');
 
     let topicalMap = null;
     let articleQueue = [];
@@ -165,22 +214,53 @@ app.get('/api/websites/available', async (req, res) => {
 
     for (const entry of entries) {
       if (entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('JOSH-')) {
-        // Check if it has ai/knowledge folder
-        const aiPath = path.join(JOSH_AI_WEBSITES_DIR, entry.name, 'ai');
+        // Check for AI folder (lowercase or uppercase)
+        const aiPathLower = path.join(JOSH_AI_WEBSITES_DIR, entry.name, 'ai');
+        const aiPathUpper = path.join(JOSH_AI_WEBSITES_DIR, entry.name, 'AI');
+
+        let hasAI = false;
+        let hasTopicalMap = false;
+
+        // Check lowercase first
         try {
-          await fs.access(aiPath);
-          websites.push({
-            folder: entry.name,
-            hasAI: true
-          });
+          await fs.access(aiPathLower);
+          hasAI = true;
+          // Check for topical map
+          const topicalMapPath = path.join(aiPathLower, 'knowledge/04-content-strategy/ready/topical-map.json');
+          try {
+            await fs.access(topicalMapPath);
+            hasTopicalMap = true;
+          } catch {}
         } catch {
-          websites.push({
-            folder: entry.name,
-            hasAI: false
-          });
+          // Try uppercase
+          try {
+            await fs.access(aiPathUpper);
+            hasAI = true;
+            // Check for topical map
+            const topicalMapPath = path.join(aiPathUpper, 'knowledge/04-content-strategy/ready/topical-map.json');
+            try {
+              await fs.access(topicalMapPath);
+              hasTopicalMap = true;
+            } catch {}
+          } catch {}
         }
+
+        websites.push({
+          folder: entry.name,
+          hasAI,
+          hasTopicalMap
+        });
       }
     }
+
+    // Sort: folders with topical maps first, then by name
+    websites.sort((a, b) => {
+      if (a.hasTopicalMap && !b.hasTopicalMap) return -1;
+      if (!a.hasTopicalMap && b.hasTopicalMap) return 1;
+      if (a.hasAI && !b.hasAI) return -1;
+      if (!a.hasAI && b.hasAI) return 1;
+      return a.folder.localeCompare(b.folder);
+    });
 
     res.json({ websites });
   } catch (error) {

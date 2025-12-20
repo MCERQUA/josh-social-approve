@@ -17,6 +17,7 @@ interface WebsiteContent {
     name: string;
     url: string;
     domain_folder: string;
+    slug?: string; // Used for URL routing
   };
   topicalMap: {
     metadata: Record<string, unknown>;

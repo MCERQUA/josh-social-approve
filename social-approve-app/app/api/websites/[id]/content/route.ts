@@ -23,6 +23,10 @@ const DOMAIN_MAPPING: Record<string, string> = {
  *
  * Returns both topical map and article queue for a customer's website.
  * Gets website info from database, then calls VPS API for filesystem content.
+ *
+ * Supports both:
+ * - Numeric ID: /api/websites/3/content
+ * - Slug (domain_folder): /api/websites/foamologyinsulation-web/content
  */
 export async function GET(
   request: NextRequest,
@@ -36,11 +40,23 @@ export async function GET(
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
     }
 
+    // Check if id is numeric or a slug
+    const isNumeric = /^\d+$/.test(id);
+
     // Get website and verify ownership
-    const websites = await sql`
-      SELECT * FROM websites
-      WHERE id = ${id} AND tenant_id = ${tenantId} AND is_active = true
-    `;
+    let websites;
+    if (isNumeric) {
+      websites = await sql`
+        SELECT * FROM websites
+        WHERE id = ${id} AND tenant_id = ${tenantId} AND is_active = true
+      `;
+    } else {
+      // Look up by domain_folder (slug)
+      websites = await sql`
+        SELECT * FROM websites
+        WHERE domain_folder = ${id} AND tenant_id = ${tenantId} AND is_active = true
+      `;
+    }
 
     if (websites.length === 0) {
       return NextResponse.json({ error: 'Website not found' }, { status: 404 });

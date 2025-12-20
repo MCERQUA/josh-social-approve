@@ -9,7 +9,24 @@ const VPS_API_URL = process.env.VPS_API_URL || 'http://api.jamsocial.app';
 interface AvailableWebsite {
   folder: string;
   hasAI: boolean;
+  hasTopicalMap?: boolean;
 }
+
+// Friendly folder names for common websites
+const FOLDER_LABELS: Record<string, string> = {
+  'ICA-Website': 'ICA - Insulation Contractors of Arizona',
+  'foamologyinsulation-web': 'Foamology Insulation',
+  'CCA': 'Contractors Choice Agency',
+  'humble-help-roofing': 'Humble Help Roofing',
+  'framing-insurance': 'Framing Insurance',
+  'better-home-performance': 'Better Home Performance',
+  'chandler-business-center': 'Chandler Business Center',
+  'roofinginsurance': 'Roofing Insurance',
+  'arizonainsulationremoval': 'Arizona Insulation Removal',
+  'hoodventinsurance': 'Hood Vent Insurance',
+  'bungee-jumping-insurance': 'Bungee Jumping Insurance',
+  'EDI-sprayfoam': 'EDI Spray Foam',
+};
 
 /**
  * GET /api/websites/available-folders
@@ -22,7 +39,7 @@ export async function GET() {
 
     if (!response.ok) {
       console.error('VPS API error:', response.status);
-      return NextResponse.json({ websites: [] });
+      return NextResponse.json({ folders: [] });
     }
 
     const data = await response.json();
@@ -32,7 +49,8 @@ export async function GET() {
       .filter((w: AvailableWebsite) => w.hasAI)
       .map((w: AvailableWebsite) => ({
         folder: w.folder,
-        label: formatFolderName(w.folder)
+        label: FOLDER_LABELS[w.folder] || formatFolderName(w.folder),
+        hasTopicalMap: w.hasTopicalMap || false
       }));
 
     return NextResponse.json({ folders: foldersWithContent });
