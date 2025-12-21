@@ -1366,42 +1366,50 @@ app.post('/api/website-content/:domainFolder/optimize-title', async (req, res) =
       return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
     }
 
-    const prompt = `You are a viral content writer who creates headlines that get massive clicks.
+    const prompt = `You are a content writer creating article headlines for a home improvement company.
 
 CURRENT TITLE: "${currentTitle}"
 KEYWORD TO INCLUDE: "${targetKeyword}"
 
-CRITICAL RULE - NEVER USE A COLON IN THE TITLE. No "Keyword: Something" format. Ever. This is the #1 rule.
+RULE #1: NEVER use a colon. No "Keyword: Something" format.
+RULE #2: Mix positive AND practical angles, not just fear/problems.
 
-Write ONE headline that:
-- Includes "${targetKeyword}" naturally woven into the sentence
-- Makes homeowners NEED to click (curiosity, fear, savings, solutions)
-- Sounds like a real article, not an SEO keyword dump
-- Is under 60 characters
+Write ONE headline that includes "${targetKeyword}" naturally. Under 60 characters.
 
-HEADLINE STYLES THAT WORK:
-- "Why Your [Thing] Is Costing You $X/Month" (money loss)
-- "The Hidden Problem With [Thing] Nobody Talks About" (secret/curiosity)
-- "X Signs You Need [Service] (And What It Actually Costs)" (practical + cost)
-- "We Compared [X] vs [Y] — Here's the Winner" (comparison)
-- "What [Location] Homeowners Get Wrong About [Topic]" (local + mistake)
-- "How [Service] Saved This Family $X Per Year" (story/proof)
+PICK FROM THESE STYLES (vary them, don't always use the same one):
 
-NEVER WRITE TITLES LIKE THESE (boring, spammy, lazy):
-- "Attic Insulation: Benefits and Costs" ❌
-- "Spray Foam Insulation: What You Need to Know" ❌
-- "Crawl Space Insulation: A Complete Guide" ❌
-- "Metal Building Insulation: Tips and Tricks" ❌
-- ANY title with a colon followed by a generic phrase ❌
+POSITIVE/BENEFITS:
+- "How ${targetKeyword} Can Cut Your Energy Bills in Half"
+- "The Simple ${targetKeyword} Upgrade That Pays for Itself"
+- "Why Homeowners Love ${targetKeyword} (Real Results)"
 
-GOOD TITLES (notice - no colons, reads naturally):
-- "Why Your Attic Insulation Is Costing You $200 Every Month"
-- "5 Attic Insulation Mistakes That Double Your Energy Bills"
-- "Is Spray Foam Worth $3,000 More? We Did the Math"
-- "What Missouri Homeowners Get Wrong About Crawl Space Insulation"
-- "The Real Reason Your Pole Barn Has Condensation Problems"
+PRACTICAL/HELPFUL:
+- "Everything You Need to Know About ${targetKeyword}"
+- "How Much Does ${targetKeyword} Actually Cost in 2025?"
+- "A Homeowner's Guide to Choosing the Right ${targetKeyword}"
 
-Return ONLY the headline. No quotes. No explanation.`;
+CURIOSITY:
+- "What Most People Don't Know About ${targetKeyword}"
+- "The ${targetKeyword} Secret Contractors Won't Tell You"
+
+QUESTION:
+- "Is ${targetKeyword} Worth It? Here's the Honest Answer"
+- "Should You Get ${targetKeyword}? A Simple Decision Guide"
+
+COMPARISON:
+- "${targetKeyword} vs Fiberglass — Which Is Actually Better?"
+- "We Tested 3 Types of ${targetKeyword}. Here's What Won."
+
+LOCAL:
+- "${targetKeyword} for Missouri Homes (What Works Best)"
+- "Why ${targetKeyword} Matters More in the Midwest"
+
+BAD (never do these):
+- "Attic Insulation: Benefits" ❌
+- "Spray Foam: Complete Guide" ❌
+- Anything with a colon ❌
+
+Return ONLY the headline. No quotes.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
