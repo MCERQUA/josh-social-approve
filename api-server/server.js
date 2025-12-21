@@ -1400,9 +1400,9 @@ COMPARISON:
 - "${targetKeyword} vs Fiberglass — Which Is Actually Better?"
 - "We Tested 3 Types of ${targetKeyword}. Here's What Won."
 
-LOCAL:
-- "${targetKeyword} for Missouri Homes (What Works Best)"
-- "Why ${targetKeyword} Matters More in the Midwest"
+LOCAL (if keyword includes a city/state, use it):
+- "${targetKeyword} for Your Area (What Works Best)"
+- "Why Local Climate Makes ${targetKeyword} Essential"
 
 BAD (never do these):
 - "Attic Insulation: Benefits" ❌
