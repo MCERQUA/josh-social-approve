@@ -25,12 +25,33 @@ export async function getTenantSubdomain(): Promise<string> {
 
 /**
  * Get the full tenant record from the database.
- * If user is logged in, try to find their tenant by clerk_user_id first.
- * If no tenant exists for the user, create one.
- * Returns null only if not logged in and subdomain tenant doesn't exist.
+ *
+ * Priority order:
+ * 1. Subdomain from URL (if not 'josh' default)
+ * 2. User's linked tenant by clerk_user_id
+ * 3. User's email match to existing tenant
+ * 4. Create new tenant for user
+ * 5. Fall back to subdomain
+ *
+ * This allows Josh to view other tenants (like edi.jamsocial.app) while logged in.
  */
 export async function getTenant(): Promise<Tenant | null> {
-  // First, try to get the current user's tenant by Clerk ID
+  // FIRST: Check subdomain - if it's a specific subdomain (not default), use it
+  const subdomain = await getTenantSubdomain();
+
+  // If subdomain is set and NOT the default 'josh', prioritize it
+  // This allows Josh to view client dashboards by visiting their subdomain
+  if (subdomain && subdomain !== 'josh') {
+    const subdomainTenant = await sql`
+      SELECT * FROM tenants WHERE subdomain = ${subdomain} AND is_active = true
+    `;
+
+    if (subdomainTenant.length > 0) {
+      return subdomainTenant[0] as Tenant;
+    }
+  }
+
+  // SECOND: Try to get the current user's tenant by Clerk ID
   try {
     const { userId } = await auth();
 
@@ -66,11 +87,11 @@ export async function getTenant(): Promise<Tenant | null> {
       // Create a new tenant for this user
       const userName = user?.fullName || user?.firstName || 'New User';
       // Create a unique subdomain from user ID
-      const subdomain = userId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 20);
+      const userSubdomain = userId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 20);
 
       const newTenant = await sql`
         INSERT INTO tenants (subdomain, name, email, clerk_user_id, primary_color, is_active)
-        VALUES (${subdomain}, ${userName}, ${userEmail}, ${userId}, '#3B82F6', true)
+        VALUES (${userSubdomain}, ${userName}, ${userEmail}, ${userId}, '#3B82F6', true)
         RETURNING *
       `;
 
@@ -82,8 +103,6 @@ export async function getTenant(): Promise<Tenant | null> {
   }
 
   // Fall back to subdomain-based lookup (for unauthenticated or API contexts)
-  const subdomain = await getTenantSubdomain();
-
   const result = await sql`
     SELECT * FROM tenants WHERE subdomain = ${subdomain} AND is_active = true
   `;
