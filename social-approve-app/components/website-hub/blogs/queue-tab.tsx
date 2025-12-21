@@ -68,6 +68,7 @@ export function BlogQueueTab({ domain }: BlogQueueTabProps) {
   const [currentlyOptimizing, setCurrentlyOptimizing] = useState<string | null>(null);
   const [randomizing, setRandomizing] = useState(false);
   const [researchingIds, setResearchingIds] = useState<Set<string>>(new Set());
+  const [optimizedIds, setOptimizedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadQueue();
@@ -369,37 +370,36 @@ export function BlogQueueTab({ domain }: BlogQueueTabProps) {
     }
   };
 
-  const optimizeAllTitles = async () => {
-    if (queueItems.length === 0) return;
+  // Get the next batch of articles to optimize (those not yet optimized)
+  const getNextBatchToOptimize = () => {
+    const BATCH_SIZE = 10;
+    const unoptimized = queueItems.filter(item => !optimizedIds.has(item.id));
+    return unoptimized.slice(0, BATCH_SIZE);
+  };
 
-    const confirmed = window.confirm(
-      `This will optimize all ${queueItems.length} article titles using Claude Code. This may take a few minutes. Continue?`
-    );
+  const remainingToOptimize = queueItems.filter(item => !optimizedIds.has(item.id)).length;
 
-    if (!confirmed) return;
+  const optimizeNextBatch = async () => {
+    const batch = getNextBatchToOptimize();
+    if (batch.length === 0) {
+      alert('All titles have been optimized!');
+      return;
+    }
 
     setBatchOptimizing(true);
-    setBatchProgress({ current: 0, total: queueItems.length });
+    setBatchProgress({ current: 0, total: batch.length });
     setCurrentlyOptimizing(null);
 
     try {
-      // Prepare articles for batch optimization
-      const articles = queueItems.map(item => ({
-        articleId: item.id,
-        currentTitle: item.title,
-        targetKeyword: item.target_keyword
-      }));
-
-      // Process articles one at a time to show real-time progress
       let successCount = 0;
       let failureCount = 0;
 
-      for (let i = 0; i < articles.length; i++) {
-        const article = articles[i];
+      for (let i = 0; i < batch.length; i++) {
+        const item = batch[i];
 
         // Update progress
-        setBatchProgress({ current: i + 1, total: queueItems.length });
-        setCurrentlyOptimizing(article.currentTitle);
+        setBatchProgress({ current: i + 1, total: batch.length });
+        setCurrentlyOptimizing(item.title);
 
         try {
           // Call individual optimize endpoint
@@ -408,9 +408,9 @@ export function BlogQueueTab({ domain }: BlogQueueTabProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               domain,
-              articleId: article.articleId,
-              currentTitle: article.currentTitle,
-              targetKeyword: article.targetKeyword
+              articleId: item.id,
+              currentTitle: item.title,
+              targetKeyword: item.target_keyword
             })
           });
 
@@ -422,43 +422,53 @@ export function BlogQueueTab({ domain }: BlogQueueTabProps) {
 
           // Update local state immediately
           setQueueItems(prev =>
-            prev.map(item =>
-              item.id === article.articleId
-                ? { ...item, title: data.optimizedTitle }
-                : item
+            prev.map(qItem =>
+              qItem.id === item.id
+                ? { ...qItem, title: data.optimizedTitle }
+                : qItem
             )
           );
 
+          // Mark as optimized
+          setOptimizedIds(prev => new Set(prev).add(item.id));
+
           successCount++;
 
-          // Small delay between requests
-          if (i < articles.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
+          // Delay between requests to avoid rate limiting (6 seconds = 10 per minute)
+          if (i < batch.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 6000));
           }
 
         } catch (err) {
-          console.error(`Failed to optimize: ${article.currentTitle}`, err);
+          console.error(`Failed to optimize: ${item.title}`, err);
           failureCount++;
-          // Continue with next article even if this one fails
+          // Mark as optimized anyway so we don't retry failed ones
+          setOptimizedIds(prev => new Set(prev).add(item.id));
         }
       }
 
+      const remaining = queueItems.length - optimizedIds.size - successCount;
+
       // Show summary
       alert(
-        `Batch optimization complete!\n\n` +
-        `✓ Successfully optimized: ${successCount}\n` +
-        `✗ Failed: ${failureCount}\n` +
-        `Total: ${queueItems.length}`
+        `Batch complete!\n\n` +
+        `✓ Optimized: ${successCount}\n` +
+        `✗ Failed: ${failureCount}\n\n` +
+        `${remaining > 0 ? `${remaining} articles remaining. Click the button again after 1 minute to continue.` : 'All titles optimized!'}`
       );
 
     } catch (err) {
       console.error('Error in batch optimization:', err);
-      alert('Batch optimization encountered an error. Some titles may have been optimized.');
+      alert('Batch optimization encountered an error. Try again in a minute.');
     } finally {
       setBatchOptimizing(false);
       setBatchProgress({ current: 0, total: 0 });
       setCurrentlyOptimizing(null);
     }
+  };
+
+  const resetOptimizationTracking = () => {
+    setOptimizedIds(new Set());
   };
 
   const getPhaseText = (phase: number) => {
@@ -562,8 +572,8 @@ export function BlogQueueTab({ domain }: BlogQueueTabProps) {
               <Button
                 variant="default"
                 size="sm"
-                onClick={optimizeAllTitles}
-                disabled={batchOptimizing || randomizing || queueItems.length === 0}
+                onClick={optimizeNextBatch}
+                disabled={batchOptimizing || randomizing || remainingToOptimize === 0}
                 className="gap-2"
               >
                 {batchOptimizing ? (
@@ -571,13 +581,33 @@ export function BlogQueueTab({ domain }: BlogQueueTabProps) {
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Optimizing {batchProgress.current}/{batchProgress.total}...
                   </>
+                ) : remainingToOptimize === 0 ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    All Optimized
+                  </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Optimize All Titles
+                    Optimize {Math.min(10, remainingToOptimize)} Titles
+                    {remainingToOptimize > 10 && (
+                      <span className="text-xs opacity-70">({remainingToOptimize} left)</span>
+                    )}
                   </>
                 )}
               </Button>
+              {optimizedIds.size > 0 && !batchOptimizing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetOptimizationTracking}
+                  className="gap-1 text-xs"
+                  title="Reset tracking to re-optimize all titles"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Reset
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
