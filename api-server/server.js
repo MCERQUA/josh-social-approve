@@ -2121,6 +2121,147 @@ Begin immediately.`;
   }
 });
 
+/**
+ * GET /api/brands/:slug/content
+ *
+ * Scans client content folder for images and videos
+ * Used by the Content Library feature
+ */
+app.get('/api/brands/:slug/content', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const brandSlug = slug.toUpperCase();
+
+    // Path to client's content folder in the social-approve-app
+    const clientDir = path.join(
+      JOSH_AI_WEBSITES_DIR,
+      'JOSH-SOCIAL-APPROVE/social-approve-app/public/clients',
+      brandSlug
+    );
+
+    try {
+      await fs.access(clientDir);
+    } catch {
+      return res.json({
+        error: `No content folder found for brand: ${brandSlug}`,
+        files: [],
+        stats: {
+          total: 0,
+          images: 0,
+          videos: 0,
+          byCategory: {
+            'company-images': 0,
+            'social-posts': 0,
+            'logos': 0,
+            'screenshots': 0,
+            'other': 0
+          }
+        }
+      });
+    }
+
+    // Scan for content files
+    const files = await scanContentDirectory(clientDir, `/clients/${brandSlug}`);
+
+    // Sort by modified date (newest first)
+    files.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
+
+    // Calculate stats
+    const stats = {
+      total: files.length,
+      images: files.filter(f => f.type === 'image').length,
+      videos: files.filter(f => f.type === 'video').length,
+      byCategory: {
+        'company-images': files.filter(f => f.category === 'company-images').length,
+        'social-posts': files.filter(f => f.category === 'social-posts').length,
+        'logos': files.filter(f => f.category === 'logos').length,
+        'screenshots': files.filter(f => f.category === 'screenshots').length,
+        'other': files.filter(f => f.category === 'other').length
+      }
+    };
+
+    res.json({
+      brandSlug,
+      files,
+      stats
+    });
+  } catch (error) {
+    console.error('Error scanning brand content:', error);
+    res.status(500).json({
+      error: 'Failed to scan content files',
+      details: error.message
+    });
+  }
+});
+
+// Helper: Scan content directory recursively
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.webm', '.mkv'];
+
+function getFileType(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  if (IMAGE_EXTENSIONS.includes(ext)) return 'image';
+  if (VIDEO_EXTENSIONS.includes(ext)) return 'video';
+  return null;
+}
+
+function getCategoryFromPath(filePath) {
+  const lower = filePath.toLowerCase();
+  if (lower.includes('company-images') || lower.includes('company_images')) return 'company-images';
+  if (lower.includes('social-posts/approved') || lower.includes('approved')) return 'social-posts';
+  if (lower.includes('social-posts/scheduled') || lower.includes('scheduled')) return 'social-posts';
+  if (lower.includes('logos') || lower.includes('logo')) return 'logos';
+  if (lower.includes('screenshots') || lower.includes('screenshot')) return 'screenshots';
+  return 'other';
+}
+
+function getStatusFromPath(filePath) {
+  const lower = filePath.toLowerCase();
+  if (lower.includes('/approved/')) return 'approved';
+  if (lower.includes('/scheduled/')) return 'scheduled';
+  return 'pending';
+}
+
+async function scanContentDirectory(dirPath, baseUrl, relativePath = '') {
+  const files = [];
+
+  try {
+    await fs.access(dirPath);
+  } catch {
+    return files;
+  }
+
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name);
+    const entryRelativePath = path.join(relativePath, entry.name);
+
+    if (entry.isDirectory()) {
+      // Recursively scan subdirectories
+      const subFiles = await scanContentDirectory(fullPath, baseUrl, entryRelativePath);
+      files.push(...subFiles);
+    } else if (entry.isFile()) {
+      const fileType = getFileType(entry.name);
+      if (fileType) {
+        const stats = await fs.stat(fullPath);
+        files.push({
+          name: entry.name,
+          path: entryRelativePath,
+          url: `${baseUrl}/${entryRelativePath.replace(/\\/g, '/')}`,
+          type: fileType,
+          category: getCategoryFromPath(entryRelativePath),
+          status: getStatusFromPath(entryRelativePath),
+          size: stats.size,
+          modified: stats.mtime.toISOString()
+        });
+      }
+    }
+  }
+
+  return files;
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`JAM Social API server running on http://localhost:${PORT}`);
