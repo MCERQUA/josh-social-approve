@@ -94,7 +94,8 @@ export default function Home() {
       setWebsiteStats(data);
     } catch (error) {
       console.error('Error fetching website stats:', error);
-      setWebsiteStats({ totalLive: 133, dotCom: 93, netlify: 92, wordpress: 41 });
+      // Don't set hardcoded fallback - use zeros
+      setWebsiteStats({ totalLive: 0, dotCom: 0, netlify: 0, wordpress: 0 });
     }
   };
 
