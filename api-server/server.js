@@ -1366,18 +1366,47 @@ app.post('/api/website-content/:domainFolder/optimize-title', async (req, res) =
       return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
     }
 
-    const prompt = `You are an expert SEO copywriter. Optimize this article title:
+    const prompt = `You are an expert SEO copywriter who creates irresistible, click-worthy article titles that rank on Google.
 
 CURRENT TITLE: "${currentTitle}"
 TARGET KEYWORD: "${targetKeyword}"
 
-REQUIREMENTS:
-1. Must include the target keyword "${targetKeyword}"
-2. Make it compelling and enticing to click
-3. Keep it under 60 characters
-4. Maintain professionalism for insurance/contractor industry
+## YOUR MISSION
+Create a compelling title that makes people NEED to click while naturally incorporating the keyword.
 
-Provide ONLY the optimized title (no explanation, no quotes).`;
+## TITLE FORMULAS TO CHOOSE FROM (pick the best fit):
+1. **How-To**: "How to [Achieve Result] with [Keyword]"
+2. **Question**: "Is [Keyword] Worth It? Here's What Experts Say"
+3. **Number/List**: "7 [Keyword] Mistakes That Cost Homeowners Thousands"
+4. **Benefit-Driven**: "[Keyword]: The Secret to [Desirable Outcome]"
+5. **Problem-Solution**: "Why Your [Problem] and How [Keyword] Fixes It"
+6. **Comparison**: "[Keyword] vs [Alternative]: Which Saves More Money?"
+7. **Ultimate Guide**: "The Complete Guide to [Keyword] for [Audience]"
+8. **Fear/Urgency**: "Don't [Do X] Before Reading This [Keyword] Guide"
+9. **Curiosity Gap**: "What Nobody Tells You About [Keyword]"
+10. **Local/Specific**: "[Keyword] in [Location]: Everything You Need to Know"
+
+## RULES:
+- The keyword "${targetKeyword}" MUST appear naturally in the title (can be slightly modified for grammar)
+- NEVER use the lazy format "Keyword: Subtitle" - that's boring and screams SEO spam
+- Keep it under 60 characters for Google
+- Create emotional appeal (curiosity, fear of missing out, desire for savings, etc.)
+- Make it specific and actionable, not generic
+- Professional tone for home improvement/contractor industry
+
+## BAD EXAMPLES (never do this):
+- "Spray Foam Insulation: Save Money" ❌
+- "Attic Insulation: Why It Matters" ❌
+- "Pole Barn Insulation: Complete Guide" ❌
+
+## GOOD EXAMPLES:
+- "Why Your Attic Insulation Is Costing You $200/Month"
+- "Pole Barn Insulation: 5 Mistakes That Lead to Condensation Nightmares"
+- "How Much Does Spray Foam Really Cost? (2025 Price Breakdown)"
+- "Is Closed Cell Spray Foam Worth the Extra Cost? We Did the Math"
+- "The Hidden Danger in Your Crawl Space (And How to Fix It)"
+
+Return ONLY the single best optimized title. No quotes, no explanation, no alternatives.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
@@ -1385,7 +1414,12 @@ Provide ONLY the optimized title (no explanation, no quotes).`;
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.9,
+            topP: 0.95,
+            maxOutputTokens: 100
+          }
         })
       }
     );
@@ -1398,11 +1432,17 @@ Provide ONLY the optimized title (no explanation, no quotes).`;
     let optimizedTitle = data.candidates[0].content.parts[0].text.trim()
       .replace(/^(OPTIMIZED TITLE:|Here (?:is|'s) the optimized title:?|Title:)\s*/i, '')
       .replace(/^["']|["']$/g, '')
+      .replace(/^\d+\.\s*/, '')
       .trim();
 
-    // Ensure keyword is included
-    if (!optimizedTitle.toLowerCase().includes(targetKeyword.toLowerCase())) {
-      optimizedTitle = `${targetKeyword}: ${optimizedTitle}`;
+    // Only add keyword as prefix if it's COMPLETELY missing (not even partial match)
+    const keywordWords = targetKeyword.toLowerCase().split(/\s+/);
+    const titleLower = optimizedTitle.toLowerCase();
+    const hasKeywordContent = keywordWords.some(word => word.length > 3 && titleLower.includes(word));
+
+    if (!hasKeywordContent) {
+      // Still missing - try to incorporate naturally at the start
+      optimizedTitle = `${optimizedTitle} | ${targetKeyword} Guide`;
     }
 
     // Update the topical map
