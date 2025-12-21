@@ -1366,47 +1366,42 @@ app.post('/api/website-content/:domainFolder/optimize-title', async (req, res) =
       return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
     }
 
-    const prompt = `You are an expert SEO copywriter who creates irresistible, click-worthy article titles that rank on Google.
+    const prompt = `You are a viral content writer who creates headlines that get massive clicks.
 
 CURRENT TITLE: "${currentTitle}"
-TARGET KEYWORD: "${targetKeyword}"
+KEYWORD TO INCLUDE: "${targetKeyword}"
 
-## YOUR MISSION
-Create a compelling title that makes people NEED to click while naturally incorporating the keyword.
+CRITICAL RULE - NEVER USE A COLON IN THE TITLE. No "Keyword: Something" format. Ever. This is the #1 rule.
 
-## TITLE FORMULAS TO CHOOSE FROM (pick the best fit):
-1. **How-To**: "How to [Achieve Result] with [Keyword]"
-2. **Question**: "Is [Keyword] Worth It? Here's What Experts Say"
-3. **Number/List**: "7 [Keyword] Mistakes That Cost Homeowners Thousands"
-4. **Benefit-Driven**: "[Keyword]: The Secret to [Desirable Outcome]"
-5. **Problem-Solution**: "Why Your [Problem] and How [Keyword] Fixes It"
-6. **Comparison**: "[Keyword] vs [Alternative]: Which Saves More Money?"
-7. **Ultimate Guide**: "The Complete Guide to [Keyword] for [Audience]"
-8. **Fear/Urgency**: "Don't [Do X] Before Reading This [Keyword] Guide"
-9. **Curiosity Gap**: "What Nobody Tells You About [Keyword]"
-10. **Local/Specific**: "[Keyword] in [Location]: Everything You Need to Know"
+Write ONE headline that:
+- Includes "${targetKeyword}" naturally woven into the sentence
+- Makes homeowners NEED to click (curiosity, fear, savings, solutions)
+- Sounds like a real article, not an SEO keyword dump
+- Is under 60 characters
 
-## RULES:
-- The keyword "${targetKeyword}" MUST appear naturally in the title (can be slightly modified for grammar)
-- NEVER use the lazy format "Keyword: Subtitle" - that's boring and screams SEO spam
-- Keep it under 60 characters for Google
-- Create emotional appeal (curiosity, fear of missing out, desire for savings, etc.)
-- Make it specific and actionable, not generic
-- Professional tone for home improvement/contractor industry
+HEADLINE STYLES THAT WORK:
+- "Why Your [Thing] Is Costing You $X/Month" (money loss)
+- "The Hidden Problem With [Thing] Nobody Talks About" (secret/curiosity)
+- "X Signs You Need [Service] (And What It Actually Costs)" (practical + cost)
+- "We Compared [X] vs [Y] — Here's the Winner" (comparison)
+- "What [Location] Homeowners Get Wrong About [Topic]" (local + mistake)
+- "How [Service] Saved This Family $X Per Year" (story/proof)
 
-## BAD EXAMPLES (never do this):
-- "Spray Foam Insulation: Save Money" ❌
-- "Attic Insulation: Why It Matters" ❌
-- "Pole Barn Insulation: Complete Guide" ❌
+NEVER WRITE TITLES LIKE THESE (boring, spammy, lazy):
+- "Attic Insulation: Benefits and Costs" ❌
+- "Spray Foam Insulation: What You Need to Know" ❌
+- "Crawl Space Insulation: A Complete Guide" ❌
+- "Metal Building Insulation: Tips and Tricks" ❌
+- ANY title with a colon followed by a generic phrase ❌
 
-## GOOD EXAMPLES:
-- "Why Your Attic Insulation Is Costing You $200/Month"
-- "Pole Barn Insulation: 5 Mistakes That Lead to Condensation Nightmares"
-- "How Much Does Spray Foam Really Cost? (2025 Price Breakdown)"
-- "Is Closed Cell Spray Foam Worth the Extra Cost? We Did the Math"
-- "The Hidden Danger in Your Crawl Space (And How to Fix It)"
+GOOD TITLES (notice - no colons, reads naturally):
+- "Why Your Attic Insulation Is Costing You $200 Every Month"
+- "5 Attic Insulation Mistakes That Double Your Energy Bills"
+- "Is Spray Foam Worth $3,000 More? We Did the Math"
+- "What Missouri Homeowners Get Wrong About Crawl Space Insulation"
+- "The Real Reason Your Pole Barn Has Condensation Problems"
 
-Return ONLY the single best optimized title. No quotes, no explanation, no alternatives.`;
+Return ONLY the headline. No quotes. No explanation.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`,
@@ -1435,14 +1430,30 @@ Return ONLY the single best optimized title. No quotes, no explanation, no alter
       .replace(/^\d+\.\s*/, '')
       .trim();
 
-    // Only add keyword as prefix if it's COMPLETELY missing (not even partial match)
+    // FORCE remove colon patterns - if Gemini still uses "Keyword: Something", fix it
+    if (optimizedTitle.includes(':')) {
+      const colonIndex = optimizedTitle.indexOf(':');
+      const beforeColon = optimizedTitle.slice(0, colonIndex).trim();
+      const afterColon = optimizedTitle.slice(colonIndex + 1).trim();
+
+      // If it looks like "Keyword: Subtitle" pattern, restructure it
+      if (beforeColon.toLowerCase().includes(targetKeyword.toLowerCase().split(' ')[0])) {
+        // The keyword is before the colon - bad pattern, rewrite
+        optimizedTitle = `${afterColon} for ${beforeColon}`;
+      } else {
+        // Just remove the colon, join with dash
+        optimizedTitle = `${beforeColon} — ${afterColon}`;
+      }
+    }
+
+    // Only add keyword if it's COMPLETELY missing
     const keywordWords = targetKeyword.toLowerCase().split(/\s+/);
     const titleLower = optimizedTitle.toLowerCase();
     const hasKeywordContent = keywordWords.some(word => word.length > 3 && titleLower.includes(word));
 
     if (!hasKeywordContent) {
-      // Still missing - try to incorporate naturally at the start
-      optimizedTitle = `${optimizedTitle} | ${targetKeyword} Guide`;
+      // Incorporate naturally
+      optimizedTitle = `The Truth About ${targetKeyword} (What Nobody Tells You)`;
     }
 
     // Update the topical map
