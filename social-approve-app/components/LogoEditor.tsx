@@ -22,7 +22,7 @@ export default function LogoEditor({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [position, setPosition] = useState(initialPosition);
-  const [logoSize, setLogoSize] = useState(initialSize);
+  const [logoWidth, setLogoWidth] = useState(initialSize);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isLocking, setIsLocking] = useState(false);
@@ -31,6 +31,10 @@ export default function LogoEditor({
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
   const [logoEl, setLogoEl] = useState<HTMLImageElement | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 500, height: 500 });
+  const [logoAspectRatio, setLogoAspectRatio] = useState(1); // width / height
+
+  // Calculate logo height based on width and aspect ratio
+  const logoHeight = logoWidth / logoAspectRatio;
 
   // Load images
   useEffect(() => {
@@ -47,6 +51,8 @@ export default function LogoEditor({
     logo.onload = () => {
       setLogoEl(logo);
       setLogoLoaded(true);
+      // Calculate aspect ratio (width / height)
+      setLogoAspectRatio(logo.width / logo.height);
     };
     logo.src = logoUrl;
   }, [imageUrl, logoUrl]);
@@ -71,17 +77,17 @@ export default function LogoEditor({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Check if clicking on logo area
+    // Check if clicking on logo area (using actual logo dimensions)
     if (
       x >= position.x &&
-      x <= position.x + logoSize &&
+      x <= position.x + logoWidth &&
       y >= position.y &&
-      y <= position.y + logoSize
+      y <= position.y + logoHeight
     ) {
       setIsDragging(true);
       setDragOffset({ x: x - position.x, y: y - position.y });
     }
-  }, [position, logoSize]);
+  }, [position, logoWidth, logoHeight]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging || !containerRef.current) return;
@@ -89,12 +95,12 @@ export default function LogoEditor({
     const x = e.clientX - rect.left - dragOffset.x;
     const y = e.clientY - rect.top - dragOffset.y;
 
-    // Clamp to container bounds
-    const clampedX = Math.max(0, Math.min(x, containerSize.width - logoSize));
-    const clampedY = Math.max(0, Math.min(y, containerSize.height - logoSize));
+    // Clamp to container bounds (using actual logo dimensions)
+    const clampedX = Math.max(0, Math.min(x, containerSize.width - logoWidth));
+    const clampedY = Math.max(0, Math.min(y, containerSize.height - logoHeight));
 
     setPosition({ x: clampedX, y: clampedY });
-  }, [isDragging, dragOffset, containerSize, logoSize]);
+  }, [isDragging, dragOffset, containerSize, logoWidth, logoHeight]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -123,10 +129,11 @@ export default function LogoEditor({
       const scaleY = imageEl.height / containerSize.height;
       const scaledX = position.x * scaleX;
       const scaledY = position.y * scaleY;
-      const scaledSize = logoSize * scaleX;
+      const scaledWidth = logoWidth * scaleX;
+      const scaledHeight = logoHeight * scaleY;
 
-      // Draw logo
-      ctx.drawImage(logoEl, scaledX, scaledY, scaledSize, scaledSize);
+      // Draw logo with correct aspect ratio
+      ctx.drawImage(logoEl, scaledX, scaledY, scaledWidth, scaledHeight);
 
       // Get merged image as base64
       const mergedBase64 = canvas.toDataURL('image/jpeg', 0.92);
@@ -140,12 +147,12 @@ export default function LogoEditor({
     }
   };
 
-  // Preset positions
+  // Preset positions (using actual logo dimensions)
   const presetPositions = {
     'top-left': { x: 20, y: 20 },
-    'top-right': { x: containerSize.width - logoSize - 20, y: 20 },
-    'bottom-left': { x: 20, y: containerSize.height - logoSize - 20 },
-    'bottom-right': { x: containerSize.width - logoSize - 20, y: containerSize.height - logoSize - 20 },
+    'top-right': { x: containerSize.width - logoWidth - 20, y: 20 },
+    'bottom-left': { x: 20, y: containerSize.height - logoHeight - 20 },
+    'bottom-right': { x: containerSize.width - logoWidth - 20, y: containerSize.height - logoHeight - 20 },
   };
 
   const setPresetPosition = (preset: keyof typeof presetPositions) => {
@@ -201,7 +208,7 @@ export default function LogoEditor({
               draggable={false}
             />
 
-            {/* Logo Overlay */}
+            {/* Logo Overlay - maintains aspect ratio */}
             <div
               className={`absolute pointer-events-none transition-shadow ${
                 isDragging ? 'shadow-lg shadow-cyan-500/50' : ''
@@ -209,14 +216,14 @@ export default function LogoEditor({
               style={{
                 left: position.x,
                 top: position.y,
-                width: logoSize,
-                height: logoSize,
+                width: logoWidth,
+                height: logoHeight,
               }}
             >
               <img
                 src={logoUrl}
                 alt="Logo"
-                className="w-full h-full object-contain"
+                className="w-full h-full"
                 draggable={false}
               />
               {/* Drag handle indicator */}
@@ -232,14 +239,14 @@ export default function LogoEditor({
             {/* Size Slider */}
             <div>
               <label className="text-sm text-slate-400 block mb-2">
-                Logo Size: {logoSize}px
+                Logo Width: {Math.round(logoWidth)}px (Height: {Math.round(logoHeight)}px)
               </label>
               <input
                 type="range"
                 min="50"
-                max="300"
-                value={logoSize}
-                onChange={(e) => setLogoSize(Number(e.target.value))}
+                max="400"
+                value={logoWidth}
+                onChange={(e) => setLogoWidth(Number(e.target.value))}
                 className="w-full accent-cyan-500"
               />
             </div>
