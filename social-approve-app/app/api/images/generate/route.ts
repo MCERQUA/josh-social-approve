@@ -520,7 +520,9 @@ export async function POST(request: NextRequest) {
 
 // Fallback generic prompt when no brand config
 function buildGenericPrompt(title: string, content: string): string {
-  return `Create a professional social media image for a business post.
+  return `Generate a SQUARE 1:1 aspect ratio image (equal width and height).
+
+Create a professional social media image for a business post.
 
 Topic: ${title}
 

@@ -70,7 +70,9 @@ function buildImagePromptTemplate(brandName: string, config: DbImageConfig): str
   const backgroundColor = config.backgroundColor || DEFAULTS.backgroundColor;
   const industry = config.industry || DEFAULTS.industry;
 
-  return `Create a stunning, high-quality social media image for ${brandName}, a ${industry} company.
+  return `Generate a SQUARE 1:1 aspect ratio image (equal width and height).
+
+Create a stunning, high-quality social media image for ${brandName}, a ${industry} company.
 
 BRAND STYLE:
 ${styleDescription || DEFAULTS.styleDescription}
@@ -167,7 +169,9 @@ export function buildPostImagePrompt(
 ): string {
   if (customPrompt) {
     // Merge custom prompt with brand requirements
-    return `${customPrompt}
+    return `Generate a SQUARE 1:1 aspect ratio image (equal width and height).
+
+${customPrompt}
 
 BRAND REQUIREMENTS (must follow):
 - Color palette: ${config.primaryColor} (primary), ${config.secondaryColor} (secondary), ${config.backgroundColor} (background)
