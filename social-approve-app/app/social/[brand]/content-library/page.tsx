@@ -461,7 +461,7 @@ export default function ContentLibraryPage() {
                   {file.type === 'image' ? (
                     <Image
                       src={file.url}
-                      alt={file.name}
+                      alt={file.name ?? 'Content'}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform"
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
@@ -507,8 +507,8 @@ export default function ContentLibraryPage() {
                 </div>
                 {/* File info */}
                 <div className="p-3">
-                  <p className="text-sm text-white truncate" title={file.name}>{file.name}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{formatFileSize(file.size)}</p>
+                  <p className="text-sm text-white truncate" title={file.name ?? ''}>{file.name ?? 'Unnamed'}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{formatFileSize(file.size ?? 0)}</p>
                 </div>
               </div>
             ))}
