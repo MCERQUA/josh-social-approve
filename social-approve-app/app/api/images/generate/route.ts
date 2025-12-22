@@ -525,18 +525,38 @@ function buildGenericPrompt(title: string, content: string): string {
 
 Topic: ${title}
 
+WHAT TO SHOW (focus on RESULTS and BENEFITS):
+- Thermal imaging cameras (IR cameras) showing temperature differences
+- People holding IR cameras or tablets showing thermal data
+- Happy families in comfortable homes
+- Modern homes with regional landscaping
+- Energy efficiency concepts (utility bills, savings graphics)
+- Professional contractors with clipboards, tablets, hard hats
+- Cozy interior scenes (comfortable living rooms)
+- Split views showing hot exterior vs cool interior
+- Before/after thermal imaging comparisons
+- Completed insulation visible in attic (NOT being applied)
+
+ABSOLUTELY DO NOT INCLUDE (these render terribly with AI):
+- Spray foam guns or application equipment
+- People spraying or applying insulation material
+- Spray foam texture or foam being applied
+- Any insulation installation in progress
+- Hoses, tanks, or spraying equipment
+- Chemical foam or expanding foam visuals
+- Vacuum equipment or removal scenes
+
 The image should:
 - Be clean and professional with a modern business aesthetic
-- Use a color scheme of blues, whites, and subtle oranges (contractor/insurance industry colors)
+- Use a color scheme of blues, whites, and cyans
 - NOT include any text overlays or words in the image
-- Feature relevant imagery: contractors, construction equipment, safety gear, or abstract professional graphics
 - Be suitable for Facebook, Instagram, and LinkedIn
 - Have a 1:1 square aspect ratio
 - Look like a premium stock photo or professional marketing asset
 - Leave space in the upper-left corner for logo overlay
 
 Style: Corporate, trustworthy, modern, clean
-Industry: Insurance for contractors (roofing, HVAC, spray foam, electrical, plumbing)
+Industry: Insurance and services for contractors
 
 Do NOT include:
 - Any text, words, or letters in the image

@@ -16,7 +16,7 @@ When working on tasks for a specific client, ALWAYS review their CLIENT-PROFILE.
 
 | Client Code | Company | Subdomain | Profile Location |
 |-------------|---------|-----------|------------------|
-| ICA | Insulation Contractors of Arizona | icafoam.jamsocial.app | `social-approve-app/public/clients/ICA/CLIENT-PROFILE.md` |
+| ICA | Insulation Contractors of Arizona | ica.jamsocial.app | `social-approve-app/public/clients/ICA/CLIENT-PROFILE.md` |
 | CCA | Contractor's Choice Agency | josh.jamsocial.app | `social-approve-app/public/clients/CCA/CLIENT-PROFILE.md` (TBD) |
 
 ### Client Folder Structure

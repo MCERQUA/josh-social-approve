@@ -14,7 +14,7 @@
 | **Address** | 10616 N 50th Ave, Glendale, AZ 85304 |
 | **Website** | https://insulationcontractorsofarizona.com |
 | **License** | ROC #335896 |
-| **JAM Social Tenant** | icafoam |
+| **JAM Social Tenant** | ica |
 
 ---
 
