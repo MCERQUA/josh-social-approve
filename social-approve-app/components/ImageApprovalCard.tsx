@@ -3,6 +3,7 @@
 import { PostWithApproval } from '@/types';
 import Image from 'next/image';
 import { useState } from 'react';
+import LogoEditor from './LogoEditor';
 
 interface ImageApprovalCardProps {
   post: PostWithApproval;
@@ -10,6 +11,8 @@ interface ImageApprovalCardProps {
   onReject: (postId: number) => void;
   onGenerateImage?: (postId: number, instructions?: string) => Promise<void>;
   onRefresh?: () => void;
+  logoUrl?: string;
+  brandName?: string;
 }
 
 export default function ImageApprovalCard({
@@ -17,12 +20,16 @@ export default function ImageApprovalCard({
   onApprove,
   onReject,
   onGenerateImage,
-  onRefresh
+  onRefresh,
+  logoUrl,
+  brandName
 }: ImageApprovalCardProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showRegenerateModal, setShowRegenerateModal] = useState(false);
   const [regenerateInstructions, setRegenerateInstructions] = useState('');
   const [imageError, setImageError] = useState(false);
+  const [showLogoEditor, setShowLogoEditor] = useState(false);
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
 
   // Check if post has a real image (not placeholder)
   const hasRealImage = post.image_filename &&
@@ -45,6 +52,33 @@ export default function ImageApprovalCard({
       await onGenerateImage(post.id, instructions);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleSaveLogoMerge = async (mergedImageBase64: string) => {
+    setIsSavingLogo(true);
+    try {
+      const response = await fetch('/api/images/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          post_id: post.id,
+          image_base64: mergedImageBase64
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save image');
+      }
+
+      setShowLogoEditor(false);
+      alert('Image with logo saved! Deploying now (~2-5 min)');
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save image');
+    } finally {
+      setIsSavingLogo(false);
     }
   };
 
@@ -274,35 +308,50 @@ export default function ImageApprovalCard({
         {/* Action Buttons */}
         <div className="p-4 bg-slate-900/50 border-t border-slate-700">
           {hasRealImage && !isGenerating && !isImageGenerating && !isImagePendingDeploy ? (
-            <div className="flex gap-3">
-              <button
-                onClick={() => onApprove(post.id)}
-                disabled={post.approval?.image_status === 'approved'}
-                className="flex-1 px-5 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Approve</span>
-              </button>
-              <button
-                onClick={() => setShowRegenerateModal(true)}
-                className="flex-1 px-5 py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>Regenerate</span>
-              </button>
-              <button
-                onClick={() => onReject(post.id)}
-                disabled={post.approval?.image_status === 'rejected'}
-                className="px-5 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+            <div className="space-y-3">
+              {/* Main action row */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => onApprove(post.id)}
+                  disabled={post.approval?.image_status === 'approved'}
+                  className="flex-1 px-5 py-3 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Approve</span>
+                </button>
+                <button
+                  onClick={() => setShowRegenerateModal(true)}
+                  className="flex-1 px-5 py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>Regenerate</span>
+                </button>
+                <button
+                  onClick={() => onReject(post.id)}
+                  disabled={post.approval?.image_status === 'rejected'}
+                  className="px-5 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Logo edit button - only show if logo available */}
+              {logoUrl && (
+                <button
+                  onClick={() => setShowLogoEditor(true)}
+                  className="w-full px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span>Edit Logo Position</span>
+                </button>
+              )}
             </div>
           ) : (
             <div className="text-center text-slate-400 text-sm py-2">
@@ -358,6 +407,16 @@ export default function ImageApprovalCard({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Logo Editor Modal */}
+      {showLogoEditor && logoUrl && hasRealImage && (
+        <LogoEditor
+          imageUrl={`/images/${post.image_filename}`}
+          logoUrl={logoUrl}
+          onSave={handleSaveLogoMerge}
+          onCancel={() => setShowLogoEditor(false)}
+        />
       )}
     </>
   );

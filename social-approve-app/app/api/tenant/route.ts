@@ -33,6 +33,7 @@ export async function GET() {
         color: brand.color,
         logo_url: brand.logo_url,
         website_url: brand.website_url,
+        image_config: brand.image_config,
       })),
     });
   } catch (error) {

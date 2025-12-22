@@ -14,6 +14,9 @@ interface Brand {
   slug: string;
   name: string;
   short_name: string;
+  image_config?: {
+    logoPath?: string;
+  };
 }
 
 export default function ImageApprovalsPage() {
@@ -348,6 +351,8 @@ export default function ImageApprovalsPage() {
                 onReject={handleRejectImage}
                 onGenerateImage={handleGenerateImage}
                 onRefresh={fetchBrandAndPosts}
+                logoUrl={brand?.image_config?.logoPath}
+                brandName={brand?.name}
               />
             ))}
           </div>
