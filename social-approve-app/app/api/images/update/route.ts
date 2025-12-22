@@ -64,11 +64,11 @@ export async function POST(request: NextRequest) {
       filename = `${brandSlug}-${slug}-${post_id}.jpg`;
     }
 
-    // Commit to GitHub
+    // Commit to GitHub (commitImage expects base64 string)
     const imagePath = `public/images/${filename}`;
     const commitMessage = `Update image with logo for post ${post_id}`;
 
-    await commitImage(imagePath, imageBuffer, commitMessage);
+    await commitImage(imagePath, imageBuffer.toString('base64'), commitMessage);
 
     // Get the public URL
     const imageUrl = await getImageUrl(filename);
