@@ -210,11 +210,11 @@ async function compressImage(base64Input: string): Promise<{ buffer: Buffer; siz
   let quality = JPEG_QUALITY;
   let outputBuffer: Buffer;
 
-  // Start with target quality
+  // Start with target quality - use 'cover' to crop to square
   outputBuffer = await sharp(inputBuffer)
     .resize(IMAGE_MAX_SIZE, IMAGE_MAX_SIZE, {
-      fit: 'inside',
-      withoutEnlargement: true,
+      fit: 'cover',  // Crop to fill the square (no stretching)
+      position: 'center',  // Center the crop
     })
     .jpeg({ quality, mozjpeg: true })
     .toBuffer();
@@ -224,8 +224,8 @@ async function compressImage(base64Input: string): Promise<{ buffer: Buffer; siz
     quality -= 5;
     outputBuffer = await sharp(inputBuffer)
       .resize(IMAGE_MAX_SIZE, IMAGE_MAX_SIZE, {
-        fit: 'inside',
-        withoutEnlargement: true,
+        fit: 'cover',  // Crop to fill the square (no stretching)
+        position: 'center',  // Center the crop
       })
       .jpeg({ quality, mozjpeg: true })
       .toBuffer();
@@ -360,8 +360,6 @@ export async function POST(request: NextRequest) {
           contents: imagePrompt,
           config: {
             responseModalities: ['TEXT', 'IMAGE'],
-            // Force 1:1 square aspect ratio for social media
-            aspectRatio: '1:1',
           },
         });
       } catch (sdkError) {
