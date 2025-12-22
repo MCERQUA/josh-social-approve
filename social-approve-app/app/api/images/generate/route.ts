@@ -374,11 +374,13 @@ export async function POST(request: NextRequest) {
           throw new Error('No image data in response');
         }
 
-        // Convert to base64
-        if (imageBytes instanceof Uint8Array || Buffer.isBuffer(imageBytes)) {
-          rawImageBase64 = Buffer.from(imageBytes).toString('base64');
-        } else if (typeof imageBytes === 'string') {
-          rawImageBase64 = imageBytes;
+        // Convert to base64 - imageBytes can be Uint8Array, Buffer, or base64 string
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data = imageBytes as any;
+        if (data instanceof Uint8Array || Buffer.isBuffer(data)) {
+          rawImageBase64 = Buffer.from(data).toString('base64');
+        } else if (typeof data === 'string') {
+          rawImageBase64 = data;
         } else {
           throw new Error('Unexpected image data format from Imagen');
         }
