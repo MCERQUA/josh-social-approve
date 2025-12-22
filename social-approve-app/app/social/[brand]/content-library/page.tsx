@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -8,25 +8,37 @@ import Image from 'next/image';
 export const dynamic = 'force-dynamic';
 
 interface ContentFile {
-  name: string;
-  path: string;
+  id?: string;
+  name?: string;
+  originalFilename?: string;
+  seoFilename?: string;
+  path?: string;
   url: string;
   type: 'image' | 'video';
-  category: 'company-images' | 'social-posts' | 'logos' | 'screenshots' | 'other';
-  status?: 'approved' | 'scheduled' | 'pending';
-  size: number;
-  modified: string;
+  fileType?: 'image' | 'video';
+  category: 'company-images' | 'social-posts' | 'logos' | 'screenshots' | 'uploads' | 'other';
+  status?: 'approved' | 'scheduled' | 'pending' | 'untracked';
+  size?: number;
+  fileSize?: number;
+  modified?: string;
+  createdAt?: string;
+  customerNote?: string | null;
+  altText?: string;
+  isUntracked?: boolean;
 }
 
 interface ContentStats {
   total: number;
   images: number;
   videos: number;
+  tracked?: number;
+  untracked?: number;
   byCategory: {
     'company-images': number;
     'social-posts': number;
     'logos': number;
     'screenshots': number;
+    'uploads'?: number;
     'other': number;
   };
 }
@@ -52,6 +64,7 @@ const categoryLabels: Record<string, string> = {
   'social-posts': 'Social Posts',
   'logos': 'Logos',
   'screenshots': 'Screenshots',
+  'uploads': 'Uploads',
   'other': 'Other',
 };
 
@@ -79,6 +92,11 @@ const categoryIcons: Record<string, React.ReactNode> = {
   'other': (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+    </svg>
+  ),
+  'uploads': (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
     </svg>
   ),
 };
@@ -116,6 +134,16 @@ export default function ContentLibraryPage() {
   // Preview modal
   const [previewFile, setPreviewFile] = useState<ContentFile | null>(null);
 
+  // Upload state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadNote, setUploadNote] = useState('');
+  const [uploadCategory, setUploadCategory] = useState<string>('uploads');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const fetchData = useCallback(async () => {
     if (!brandSlug) return;
     try {
@@ -134,18 +162,108 @@ export default function ContentLibraryPage() {
       }
       setBrand(foundBrand);
 
-      // Fetch content
-      const contentRes = await fetch(`/api/brands/${brandSlug}/content`);
+      // Fetch content library (with metadata)
+      const contentRes = await fetch(`/api/brands/${brandSlug}/library`);
       if (!contentRes.ok) throw new Error('Failed to fetch content');
       const contentData = await contentRes.json();
-      setFiles(contentData.files || []);
-      setStats(contentData.stats || null);
+
+      // Normalize files to consistent format
+      const normalizedFiles = (contentData.files || []).map((f: ContentFile) => ({
+        ...f,
+        name: f.name || f.seoFilename || f.originalFilename,
+        type: f.type || f.fileType,
+        size: f.size || f.fileSize,
+        modified: f.modified || f.createdAt,
+      }));
+
+      setFiles(normalizedFiles);
+
+      // Calculate stats from files
+      const calcStats: ContentStats = {
+        total: normalizedFiles.length,
+        images: normalizedFiles.filter((f: ContentFile) => f.type === 'image').length,
+        videos: normalizedFiles.filter((f: ContentFile) => f.type === 'video').length,
+        tracked: contentData.stats?.tracked || 0,
+        untracked: contentData.stats?.untracked || 0,
+        byCategory: {
+          'company-images': normalizedFiles.filter((f: ContentFile) => f.category === 'company-images').length,
+          'social-posts': normalizedFiles.filter((f: ContentFile) => f.category === 'social-posts').length,
+          'logos': normalizedFiles.filter((f: ContentFile) => f.category === 'logos').length,
+          'screenshots': normalizedFiles.filter((f: ContentFile) => f.category === 'screenshots').length,
+          'uploads': normalizedFiles.filter((f: ContentFile) => f.category === 'uploads').length,
+          'other': normalizedFiles.filter((f: ContentFile) => f.category === 'other').length,
+        }
+      };
+      setStats(calcStats);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
   }, [brandSlug]);
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedFiles(files);
+    setUploadError(null);
+  };
+
+  // Handle upload
+  const handleUpload = async () => {
+    if (selectedFiles.length === 0) {
+      setUploadError('Please select a file to upload');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadError(null);
+
+    try {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('note', uploadNote);
+        formData.append('category', uploadCategory);
+
+        const response = await fetch(`/api/brands/${brandSlug}/upload`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Upload failed');
+        }
+
+        setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 100));
+      }
+
+      // Success - close modal and refresh
+      setShowUploadModal(false);
+      setSelectedFiles([]);
+      setUploadNote('');
+      setUploadCategory('uploads');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      fetchData();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Reset upload modal
+  const resetUploadModal = () => {
+    setShowUploadModal(false);
+    setSelectedFiles([]);
+    setUploadNote('');
+    setUploadCategory('uploads');
+    setUploadError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   useEffect(() => {
     fetchData();
@@ -209,15 +327,26 @@ export default function ContentLibraryPage() {
                 <p className="text-slate-400 text-sm">Browse all images and videos for {brand.name}</p>
               </div>
             </div>
-            <button
-              onClick={fetchData}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Refresh
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Upload
+              </button>
+              <button
+                onClick={fetchData}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -276,6 +405,7 @@ export default function ContentLibraryPage() {
             className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
           >
             <option value="all">All Categories</option>
+            <option value="uploads">Uploads</option>
             <option value="company-images">Company Photos</option>
             <option value="social-posts">Social Posts</option>
             <option value="logos">Logos</option>
@@ -477,6 +607,175 @@ export default function ContentLibraryPage() {
                   </a>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={resetUploadModal}
+        >
+          <div
+            className="bg-slate-900 rounded-xl max-w-lg w-full overflow-hidden border border-slate-700"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg ${colors.bg} border ${colors.border} flex items-center justify-center`}>
+                  <svg className={`w-5 h-5 ${colors.text}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Upload Content</h2>
+                  <p className="text-sm text-slate-400">Add images or videos to {brand?.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={resetUploadModal}
+                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal content */}
+            <div className="p-6 space-y-5">
+              {/* File input */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Select Files
+                </label>
+                <div
+                  className="border-2 border-dashed border-slate-700 rounded-lg p-6 text-center hover:border-cyan-500/50 transition-colors cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  {selectedFiles.length === 0 ? (
+                    <>
+                      <svg className="w-10 h-10 text-slate-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-slate-400 mb-1">Click to select files</p>
+                      <p className="text-sm text-slate-500">PNG, JPG, GIF, WEBP, MP4, MOV up to 50MB</p>
+                    </>
+                  ) : (
+                    <div className="text-left">
+                      <p className="text-cyan-400 font-medium mb-2">{selectedFiles.length} file(s) selected:</p>
+                      <ul className="text-sm text-slate-400 space-y-1 max-h-32 overflow-y-auto">
+                        {selectedFiles.map((f, i) => (
+                          <li key={i} className="truncate">
+                            {f.name} ({formatFileSize(f.size)})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Note field */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Description / Note <span className="text-slate-500">(used for SEO filename)</span>
+                </label>
+                <textarea
+                  value={uploadNote}
+                  onChange={(e) => setUploadNote(e.target.value)}
+                  placeholder="Example: Spray foam installation in Phoenix attic - crew working on residential project"
+                  rows={3}
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
+                />
+                <p className="text-xs text-slate-500 mt-1.5">
+                  This description helps us name the file properly for search engines and helps you find it later.
+                </p>
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Category
+                </label>
+                <select
+                  value={uploadCategory}
+                  onChange={(e) => setUploadCategory(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="uploads">Uploads (Default)</option>
+                  <option value="company-images">Company Photos</option>
+                  <option value="logos">Logos</option>
+                  <option value="screenshots">Screenshots</option>
+                </select>
+              </div>
+
+              {/* Error message */}
+              {uploadError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                  {uploadError}
+                </div>
+              )}
+
+              {/* Progress bar */}
+              {uploading && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400">Uploading...</span>
+                    <span className="text-cyan-400">{uploadProgress}%</span>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-cyan-500 transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex items-center justify-end gap-3 p-4 border-t border-slate-700 bg-slate-800/50">
+              <button
+                onClick={resetUploadModal}
+                className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                disabled={uploading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpload}
+                disabled={uploading || selectedFiles.length === 0}
+                className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                {uploading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Upload {selectedFiles.length > 0 ? `${selectedFiles.length} File${selectedFiles.length > 1 ? 's' : ''}` : ''}
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

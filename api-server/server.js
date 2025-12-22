@@ -12,6 +12,8 @@ import express from 'express';
 import cors from 'cors';
 import { promises as fs } from 'fs';
 import path from 'path';
+import multer from 'multer';
+import sharp from 'sharp';
 
 const app = express();
 const PORT = process.env.PORT || 6350;
@@ -2261,6 +2263,387 @@ async function scanContentDirectory(dirPath, baseUrl, relativePath = '') {
 
   return files;
 }
+
+// ============================================
+// CONTENT LIBRARY UPLOAD ENDPOINTS
+// ============================================
+
+// Configure multer for file uploads
+const CLIENTS_DIR = path.join(JOSH_AI_WEBSITES_DIR, 'JOSH-SOCIAL-APPROVE/social-approve-app/public/clients');
+
+// Temporary storage - files are processed and moved to final location
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+      'video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo'
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type: ${file.mimetype}`));
+    }
+  }
+});
+
+/**
+ * Generate SEO-friendly filename from customer note
+ */
+function generateSeoFilename(note, originalFilename, brandSlug) {
+  // Get file extension
+  const ext = path.extname(originalFilename).toLowerCase();
+
+  // If no note provided, use a sanitized version of original name
+  if (!note || note.trim() === '') {
+    const baseName = path.basename(originalFilename, ext)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 50);
+    return `${brandSlug.toLowerCase()}-${baseName}-${Date.now()}${ext}`;
+  }
+
+  // Convert note to SEO-friendly slug
+  const seoSlug = note
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')  // Remove special chars
+    .replace(/\s+/g, '-')           // Spaces to dashes
+    .replace(/-+/g, '-')            // Multiple dashes to single
+    .substring(0, 60)               // Limit length
+    .replace(/^-+|-+$/g, '');       // Trim dashes from ends
+
+  // Add brand prefix and timestamp for uniqueness
+  const timestamp = Date.now();
+  return `${brandSlug.toLowerCase()}-${seoSlug}-${timestamp}${ext}`;
+}
+
+/**
+ * Load content library metadata for a brand
+ */
+async function loadContentMetadata(brandSlug) {
+  const metadataPath = path.join(CLIENTS_DIR, brandSlug.toUpperCase(), 'uploads', 'content-metadata.json');
+  try {
+    const content = await fs.readFile(metadataPath, 'utf-8');
+    return JSON.parse(content);
+  } catch {
+    return { files: [], lastUpdated: null };
+  }
+}
+
+/**
+ * Save content library metadata for a brand
+ */
+async function saveContentMetadata(brandSlug, metadata) {
+  const uploadsDir = path.join(CLIENTS_DIR, brandSlug.toUpperCase(), 'uploads');
+  await fs.mkdir(uploadsDir, { recursive: true });
+
+  metadata.lastUpdated = new Date().toISOString();
+  const metadataPath = path.join(uploadsDir, 'content-metadata.json');
+  await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+}
+
+/**
+ * POST /api/brands/:slug/upload
+ *
+ * Upload an image or video to the content library
+ * Accepts multipart form data with:
+ * - file: The image/video file
+ * - note: Customer description of the content
+ * - category: Optional category (uploads, company-images, etc.)
+ */
+app.post('/api/brands/:slug/upload', upload.single('file'), async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const brandSlug = slug.toUpperCase();
+    const { note, category = 'uploads' } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Check if client directory exists
+    const clientDir = path.join(CLIENTS_DIR, brandSlug);
+    try {
+      await fs.access(clientDir);
+    } catch {
+      return res.status(404).json({ error: `Brand folder not found: ${brandSlug}` });
+    }
+
+    // Determine file type
+    const isVideo = req.file.mimetype.startsWith('video/');
+    const fileType = isVideo ? 'video' : 'image';
+
+    // Generate SEO filename
+    const seoFilename = generateSeoFilename(note, req.file.originalname, brandSlug);
+
+    // Determine storage path based on category
+    let categoryFolder = 'uploads';
+    if (['company-images', 'logos', 'screenshots'].includes(category)) {
+      categoryFolder = category;
+    }
+
+    const relativePath = path.join(categoryFolder, seoFilename);
+    const absolutePath = path.join(clientDir, relativePath);
+
+    // Ensure directory exists
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+
+    let width = null;
+    let height = null;
+    let finalBuffer = req.file.buffer;
+
+    // Process images with sharp (optimize and get dimensions)
+    if (fileType === 'image' && !req.file.mimetype.includes('svg')) {
+      try {
+        const image = sharp(req.file.buffer);
+        const metadata = await image.metadata();
+
+        width = metadata.width;
+        height = metadata.height;
+
+        // If image is larger than 2000px, resize it
+        if (metadata.width > 2000 || metadata.height > 2000) {
+          finalBuffer = await image
+            .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+
+          // Update metadata after resize
+          const resizedMeta = await sharp(finalBuffer).metadata();
+          width = resizedMeta.width;
+          height = resizedMeta.height;
+        } else if (req.file.mimetype === 'image/png' && req.file.buffer.length > 500 * 1024) {
+          // Convert large PNGs to JPEG
+          finalBuffer = await image
+            .jpeg({ quality: 85 })
+            .toBuffer();
+        }
+      } catch (err) {
+        console.error('Image processing error:', err);
+        // Use original buffer if processing fails
+      }
+    }
+
+    // Save the file
+    await fs.writeFile(absolutePath, finalBuffer);
+
+    // Get final file size
+    const stats = await fs.stat(absolutePath);
+
+    // Create file metadata
+    const fileMetadata = {
+      id: `${brandSlug}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      originalFilename: req.file.originalname,
+      seoFilename,
+      customerNote: note || '',
+      altText: note ? note.substring(0, 200) : req.file.originalname,
+      fileType,
+      mimeType: req.file.mimetype,
+      fileSize: stats.size,
+      width,
+      height,
+      storagePath: relativePath,
+      url: `/clients/${brandSlug}/${relativePath}`,
+      category: categoryFolder,
+      status: 'pending',
+      usageCount: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    // Update content metadata file
+    const metadata = await loadContentMetadata(brandSlug);
+    metadata.files.unshift(fileMetadata);  // Add to beginning (newest first)
+    await saveContentMetadata(brandSlug, metadata);
+
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      file: fileMetadata
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      error: 'Failed to upload file',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/brands/:slug/library
+ *
+ * Get content library with metadata (notes, SEO names, usage)
+ */
+app.get('/api/brands/:slug/library', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const brandSlug = slug.toUpperCase();
+
+    // Load metadata
+    const metadata = await loadContentMetadata(brandSlug);
+
+    // Also scan for files that might not be in metadata (legacy files)
+    const clientDir = path.join(CLIENTS_DIR, brandSlug);
+    try {
+      await fs.access(clientDir);
+    } catch {
+      return res.json({
+        brandSlug,
+        files: metadata.files,
+        stats: {
+          total: metadata.files.length,
+          tracked: metadata.files.length,
+          untracked: 0
+        }
+      });
+    }
+
+    // Get all files from the content scan endpoint
+    const allFiles = await scanContentDirectory(clientDir, `/clients/${brandSlug}`);
+
+    // Cross-reference with metadata
+    const trackedPaths = new Set(metadata.files.map(f => f.url));
+    const untrackedFiles = allFiles.filter(f => !trackedPaths.has(f.url));
+
+    // Add untracked files with basic info
+    const untrackedWithMeta = untrackedFiles.map(f => ({
+      id: `untracked-${f.path.replace(/\//g, '-')}`,
+      originalFilename: f.name,
+      seoFilename: f.name,
+      customerNote: null,
+      altText: f.name,
+      fileType: f.type,
+      mimeType: null,
+      fileSize: f.size,
+      width: null,
+      height: null,
+      storagePath: f.path,
+      url: f.url,
+      category: f.category,
+      status: f.status || 'untracked',
+      usageCount: 0,
+      createdAt: f.modified,
+      isUntracked: true
+    }));
+
+    // Combine tracked and untracked
+    const allFilesWithMeta = [...metadata.files, ...untrackedWithMeta];
+
+    res.json({
+      brandSlug,
+      files: allFilesWithMeta,
+      lastUpdated: metadata.lastUpdated,
+      stats: {
+        total: allFilesWithMeta.length,
+        tracked: metadata.files.length,
+        untracked: untrackedWithMeta.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting library:', error);
+    res.status(500).json({
+      error: 'Failed to get content library',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * PATCH /api/brands/:slug/library/:fileId
+ *
+ * Update file metadata (note, category, status)
+ */
+app.patch('/api/brands/:slug/library/:fileId', async (req, res) => {
+  try {
+    const { slug, fileId } = req.params;
+    const brandSlug = slug.toUpperCase();
+    const updates = req.body;
+
+    const metadata = await loadContentMetadata(brandSlug);
+    const fileIndex = metadata.files.findIndex(f => f.id === fileId);
+
+    if (fileIndex === -1) {
+      return res.status(404).json({ error: 'File not found in library' });
+    }
+
+    // Apply allowed updates
+    const allowedFields = ['customerNote', 'altText', 'category', 'status'];
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        metadata.files[fileIndex][field] = updates[field];
+      }
+    }
+
+    metadata.files[fileIndex].updatedAt = new Date().toISOString();
+
+    await saveContentMetadata(brandSlug, metadata);
+
+    res.json({
+      success: true,
+      file: metadata.files[fileIndex]
+    });
+
+  } catch (error) {
+    console.error('Error updating file:', error);
+    res.status(500).json({
+      error: 'Failed to update file',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/brands/:slug/library/:fileId
+ *
+ * Delete a file from the content library
+ */
+app.delete('/api/brands/:slug/library/:fileId', async (req, res) => {
+  try {
+    const { slug, fileId } = req.params;
+    const brandSlug = slug.toUpperCase();
+
+    const metadata = await loadContentMetadata(brandSlug);
+    const fileIndex = metadata.files.findIndex(f => f.id === fileId);
+
+    if (fileIndex === -1) {
+      return res.status(404).json({ error: 'File not found in library' });
+    }
+
+    const file = metadata.files[fileIndex];
+
+    // Delete the actual file
+    const absolutePath = path.join(CLIENTS_DIR, brandSlug, file.storagePath);
+    try {
+      await fs.unlink(absolutePath);
+    } catch (err) {
+      console.error('Error deleting file from disk:', err);
+      // Continue with metadata removal even if file delete fails
+    }
+
+    // Remove from metadata
+    metadata.files.splice(fileIndex, 1);
+    await saveContentMetadata(brandSlug, metadata);
+
+    res.json({
+      success: true,
+      message: 'File deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({
+      error: 'Failed to delete file',
+      details: error.message
+    });
+  }
+});
 
 // Start server
 app.listen(PORT, () => {
