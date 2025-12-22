@@ -78,8 +78,7 @@ export async function POST(request: NextRequest) {
       UPDATE posts
       SET
         image_filename = ${filename},
-        image_url = ${imageUrl},
-        image_status = 'pending',
+        image_deploy_status = 'pending_deploy',
         updated_at = NOW()
       WHERE id = ${post_id}
     `;
