@@ -203,9 +203,10 @@ export default function TextOnlyPostCard({ post, onApprove, onReject, onUpdate, 
             <Image
               src={imageUrl}
               alt={post.title}
-              width={600}
-              height={600}
-              className="w-full h-auto object-cover"
+              width={1024}
+              height={1024}
+              className="w-full h-auto"
+              style={{ aspectRatio: '1/1' }}
               unoptimized
             />
           </div>

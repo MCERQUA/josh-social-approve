@@ -273,7 +273,7 @@ export default function ContentLibraryPage() {
   const filteredFiles = files.filter((file) => {
     if (categoryFilter !== 'all' && file.category !== categoryFilter) return false;
     if (typeFilter !== 'all' && file.type !== typeFilter) return false;
-    if (searchQuery && !file.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (searchQuery && !(file.name ?? '').toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 

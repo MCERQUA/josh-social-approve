@@ -240,9 +240,10 @@ export default function ImageApprovalCard({
                 <Image
                   src={`/images/${post.image_filename}`}
                   alt={post.title}
-                  width={800}
-                  height={600}
-                  className="w-full h-auto object-contain"
+                  width={1024}
+                  height={1024}
+                  className="w-full h-auto"
+                  style={{ aspectRatio: '1/1' }}
                   priority
                   onError={() => setImageError(true)}
                 />
