@@ -409,10 +409,10 @@ export default function ImageApprovalCard({
         </div>
       )}
 
-      {/* Logo Editor Modal */}
+      {/* Logo Editor Modal - uses original image (without logo) for re-editing */}
       {showLogoEditor && logoUrl && hasRealImage && (
         <LogoEditor
-          imageUrl={`/images/${post.image_filename}`}
+          imageUrl={`/images/${post.image_original_filename || post.image_filename}`}
           logoUrl={logoUrl}
           onSave={handleSaveLogoMerge}
           onCancel={() => setShowLogoEditor(false)}

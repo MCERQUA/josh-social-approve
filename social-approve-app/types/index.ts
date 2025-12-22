@@ -5,6 +5,7 @@ export interface Post {
   platform?: string; // 'social' - OneUp posts to all connected platforms automatically
   content: string;
   image_filename: string;
+  image_original_filename?: string; // Original image without logo (for re-editing)
   created_at: string;
   // Image deployment tracking
   image_deploy_status?: 'none' | 'generating' | 'pending_deploy' | 'deployed' | 'failed';

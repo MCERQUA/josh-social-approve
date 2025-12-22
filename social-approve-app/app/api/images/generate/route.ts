@@ -436,10 +436,12 @@ export async function POST(request: NextRequest) {
       );
 
       // Update post with new filename and status
+      // Set both image_filename and image_original_filename (original is for logo re-editing)
       await sql`
         UPDATE posts
         SET
           image_filename = ${filename},
+          image_original_filename = ${filename},
           image_deploy_status = 'pending_deploy',
           image_commit_sha = ${commitResult.commitSha},
           updated_at = NOW()
