@@ -360,7 +360,8 @@ export async function POST(request: NextRequest) {
           contents: imagePrompt,
           config: {
             responseModalities: ['TEXT', 'IMAGE'],
-            // SDK handles thinking automatically - no config needed
+            // Force 1:1 square aspect ratio for social media
+            aspectRatio: '1:1',
           },
         });
       } catch (sdkError) {
