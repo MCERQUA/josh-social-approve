@@ -560,7 +560,7 @@ export default function ContentLibraryPage() {
               {previewFile.type === 'image' ? (
                 <img
                   src={previewFile.url}
-                  alt={previewFile.name}
+                  alt={previewFile.name ?? 'Preview'}
                   className="max-w-full max-h-[55vh] object-contain"
                 />
               ) : (
@@ -576,15 +576,15 @@ export default function ContentLibraryPage() {
             <div className="p-4 border-t border-slate-700 bg-slate-800/50">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white font-medium">{previewFile.name}</p>
+                  <p className="text-white font-medium">{previewFile.name ?? 'Unnamed'}</p>
                   <p className="text-sm text-slate-400 mt-0.5">
-                    {formatFileSize(previewFile.size)} &bull; Modified {formatDate(previewFile.modified)}
+                    {formatFileSize(previewFile.size ?? 0)} &bull; Modified {formatDate(previewFile.modified ?? '')}
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <a
                     href={previewFile.url}
-                    download={previewFile.name}
+                    download={previewFile.name ?? 'download'}
                     className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-2"
                     onClick={(e) => e.stopPropagation()}
                   >
